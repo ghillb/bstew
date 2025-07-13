@@ -1,0 +1,99 @@
+[project]
+name = "bstew"
+version = "0.1.0"
+description = "BeeSteward v2 Python transpilation - Agent-based pollinator population modeling"
+authors = [
+    {name = "BSTEW Team"}
+]
+license = {text = "BSD-3-Clause"}
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mesa",
+    "numpy",
+    "pandas",
+    "scipy",
+    "matplotlib",
+    "plotly",
+    "pyyaml",
+    "pillow",
+    "tqdm",
+    "typer",
+    "rich",
+    "seaborn>=0.13.2",
+    "scikit-learn>=1.6.1",
+    "pydantic>=2.11.7",
+    "openpyxl>=3.1.5",
+    "geopandas>=1.1.1",
+    "shapely>=2.1.1",
+    "rasterio>=1.4.3",
+    "fiona>=1.10.1",
+    "dash>=3.1.1",
+    "ipywidgets>=8.1.7",
+    "dash-bootstrap-components>=2.0.3",
+    "reportlab>=4.4.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "ruff",
+    "mypy"
+]
+
+[project.scripts]
+bstew = "bstew.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--cov=src/bstew",
+    "--cov-report=term-missing",
+    "--cov-report=html:artifacts/coverage/html",
+    "--cov-report=xml:artifacts/coverage/coverage.xml",
+    "--cov-fail-under=80"
+]
+
+[tool.coverage.run]
+source = ["src/bstew"]
+omit = ["tests/*", "src/bstew/cli/netlogo_cli.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.uv]
+dev-dependencies = [
+    "black>=25.1.0",
+    "mypy>=1.16.1",
+    "pandas-stubs>=2.2.2.240807",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.2",
+    "scipy-stubs>=1.15.3.0",
+    "types-pyyaml>=6.0.12.20250516",
+    "types-requests>=2.32.4.20250611",
+]

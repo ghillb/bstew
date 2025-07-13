@@ -1,0 +1,49 @@
+simulation:
+  duration_days: 365
+  timestep: 1.0
+  random_seed: 42
+  start_date: "2024-01-01"
+  output_frequency: 1
+  save_state: false
+
+colony:
+  initial_population:
+    queens: 1
+    workers: 5000
+    foragers: 1000
+    drones: 100
+    brood: 2000
+  species: "apis_mellifera"
+  location: [52.5, -1.2]  # lat, lon
+  colony_strength: 1.0
+  genetic_diversity: 0.1
+
+environment:
+  landscape_file: null
+  landscape_width: 100
+  landscape_height: 100
+  cell_size: 20.0
+  weather_file: null
+  weather_variation: 0.1
+  seasonal_effects: true
+
+disease:
+  enable_varroa: true
+  enable_viruses: true
+  enable_nosema: false
+  treatment_schedule: null
+  natural_resistance: 0.1
+
+foraging:
+  max_foraging_range: 2000.0
+  dance_threshold: 0.5
+  recruitment_efficiency: 0.1
+  energy_cost_per_meter: 0.01
+
+output:
+  output_directory: "results"
+  log_level: "INFO"
+  save_plots: true
+  save_csv: true
+  save_spatial_data: false
+  compress_output: false
