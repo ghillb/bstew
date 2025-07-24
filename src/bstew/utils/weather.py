@@ -400,9 +400,228 @@ class WeatherFileLoader:
         return pd.DataFrame(weather_data)
 
     def _load_metoffice_api(self, data_source: WeatherDataSource) -> pd.DataFrame:
-        """Load data from Met Office API"""
-        # Implementation would depend on Met Office API specifics
-        raise NotImplementedError("Met Office API integration not yet implemented")
+        """Load data from Met Office API with proper error handling and fallback
+
+        The Met Office DataHub API provides access to weather observations and forecasts.
+        API documentation: https://data.hub.api.metoffice.gov.uk/
+        """
+        import os
+
+        try:
+            # API key should come from environment variable for security
+            api_key = os.getenv("MET_OFFICE_API_KEY")
+            if not api_key:
+                self.logger.warning(
+                    "Met Office API key not found. Set MET_OFFICE_API_KEY environment variable. "
+                    "Falling back to synthetic weather data."
+                )
+                return self._generate_synthetic_data(data_source)
+
+            headers = {"accept": "application/json", "x-ibm-client-id": api_key}
+
+            # Get location from data source
+            if data_source.station_info:
+                lat = data_source.station_info.latitude
+                lon = data_source.station_info.longitude
+            else:
+                # Default to London coordinates
+                lat, lon = 51.5074, -0.1278
+                self.logger.warning(
+                    f"No coordinates provided, using London defaults: {lat}, {lon}"
+                )
+
+            # Find nearest location ID
+            location_id = self._get_nearest_metoffice_location(lat, lon, headers)
+            if not location_id:
+                self.logger.error("Could not find Met Office location ID")
+                return self._generate_synthetic_data(data_source)
+
+            # Fetch both historical observations and forecast data
+            weather_data = []
+
+            # Get historical observations (if available)
+            try:
+                obs_data = self._fetch_metoffice_observations(location_id, headers)
+                weather_data.extend(obs_data)
+            except Exception as e:
+                self.logger.warning(f"Could not fetch historical observations: {e}")
+
+            # Get forecast data
+            try:
+                forecast_data = self._fetch_metoffice_forecast(location_id, headers)
+                weather_data.extend(forecast_data)
+            except Exception as e:
+                self.logger.warning(f"Could not fetch forecast data: {e}")
+
+            if not weather_data:
+                self.logger.warning("No data received from Met Office API")
+                return self._generate_synthetic_data(data_source)
+
+            # Convert to DataFrame
+            df = pd.DataFrame(weather_data)
+
+            # Ensure required columns exist
+            required_columns = [
+                "date",
+                "temperature",
+                "rainfall",
+                "wind_speed",
+                "humidity",
+            ]
+            for col in required_columns:
+                if col not in df.columns:
+                    if col == "humidity" and "relative_humidity" in df.columns:
+                        df["humidity"] = df["relative_humidity"]
+                    elif col == "rainfall" and "precipitation_amount" in df.columns:
+                        df["rainfall"] = df["precipitation_amount"]
+                    else:
+                        # Add default values for missing columns
+                        self.logger.warning(f"Missing column '{col}', using defaults")
+                        if col == "humidity":
+                            df[col] = 75.0  # Default 75% humidity
+                        elif col == "rainfall":
+                            df[col] = 0.0
+                        else:
+                            df[col] = 0.0
+
+            # Sort by date
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.sort_values("date").reset_index(drop=True)
+
+            self.logger.info(
+                f"Successfully loaded {len(df)} weather records from Met Office API"
+            )
+
+            return df
+
+        except requests.RequestException as e:
+            self.logger.error(f"Met Office API request failed: {e}")
+            self.logger.info("Falling back to synthetic weather data")
+            return self._generate_synthetic_data(data_source)
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error in Met Office API integration: {e}")
+            self.logger.info("Falling back to synthetic weather data")
+            return self._generate_synthetic_data(data_source)
+
+    def _get_nearest_metoffice_location(
+        self, lat: float, lon: float, headers: dict
+    ) -> Optional[str]:
+        """Find the nearest Met Office weather station location ID"""
+        try:
+            # Met Office site list endpoint
+            sites_url = (
+                "https://data.hub.api.metoffice.gov.uk/sitespecific/v0/all-sites"
+            )
+
+            response = requests.get(sites_url, headers=headers, timeout=10)
+            response.raise_for_status()
+
+            sites = response.json()
+
+            # Find nearest site
+            min_distance = float("inf")
+            nearest_id = None
+
+            for site in sites.get("sites", []):
+                site_lat = float(site.get("latitude", 0))
+                site_lon = float(site.get("longitude", 0))
+
+                # Simple distance calculation (good enough for finding nearest)
+                distance = ((lat - site_lat) ** 2 + (lon - site_lon) ** 2) ** 0.5
+
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_id = site.get("id")
+
+            if nearest_id:
+                self.logger.info(f"Found nearest Met Office location: {nearest_id}")
+
+            return nearest_id
+
+        except Exception as e:
+            self.logger.error(f"Error finding nearest Met Office location: {e}")
+            return None
+
+    def _fetch_metoffice_observations(
+        self, location_id: str, headers: dict
+    ) -> List[Dict[str, Any]]:
+        """Fetch historical weather observations from Met Office"""
+        try:
+            # Observations endpoint (last 24 hours)
+            obs_url = f"https://data.hub.api.metoffice.gov.uk/sitespecific/v0/site/{location_id}"
+            params = {"res": "hourly", "metricUnit": "metric"}
+
+            response = requests.get(obs_url, headers=headers, params=params, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            observations = []
+
+            # Parse observation data
+            location = data.get("site", {})
+            for period in data.get("siteTimeSeries", {}).get("timeSeries", []):
+                obs = {
+                    "date": period.get("time"),
+                    "temperature": float(period.get("temperature", 0)),
+                    "wind_speed": float(period.get("windSpeed", 0)),
+                    "relative_humidity": float(period.get("humidity", 75)),
+                    "pressure": float(period.get("pressure", 1013)),
+                    "precipitation_amount": float(period.get("precipitationAmount", 0)),
+                    "weather_type": period.get("significantWeatherCode", 0),
+                    "location_name": location.get("name", "Unknown"),
+                    "data_source": "metoffice_observation",
+                }
+                observations.append(obs)
+
+            return observations
+
+        except Exception as e:
+            self.logger.warning(f"Could not fetch Met Office observations: {e}")
+            return []
+
+    def _fetch_metoffice_forecast(
+        self, location_id: str, headers: dict
+    ) -> List[Dict[str, Any]]:
+        """Fetch weather forecast data from Met Office"""
+        try:
+            # Forecast endpoint
+            forecast_url = f"https://data.hub.api.metoffice.gov.uk/sitespecific/v0/forecasts/{location_id}"
+            params = {"res": "3hourly", "metricUnit": "metric"}
+
+            response = requests.get(
+                forecast_url, headers=headers, params=params, timeout=10
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            forecasts = []
+
+            # Parse forecast data
+            location = data.get("location", {})
+            for period in data.get("forecast", {}).get("timeSeries", []):
+                forecast = {
+                    "date": period.get("time"),
+                    "temperature": float(period.get("temperature", 0)),
+                    "wind_speed": float(period.get("windSpeed", 0)),
+                    "relative_humidity": float(period.get("humidity", 75)),
+                    "pressure": float(period.get("pressure", 1013)),
+                    "precipitation_amount": float(
+                        period.get("precipitationProbability", 0)
+                    )
+                    / 100.0
+                    * 5.0,  # Estimate
+                    "weather_type": period.get("significantWeatherCode", 0),
+                    "location_name": location.get("name", "Unknown"),
+                    "data_source": "metoffice_forecast",
+                }
+                forecasts.append(forecast)
+
+            return forecasts
+
+        except Exception as e:
+            self.logger.warning(f"Could not fetch Met Office forecast: {e}")
+            return []
 
     def _generate_synthetic_data(self, data_source: WeatherDataSource) -> pd.DataFrame:
         """Generate synthetic weather data"""

@@ -7,7 +7,7 @@ Individual command modules for the BSTEW CLI interface.
 
 from .run import RunCommand
 from .config import ConfigCommand
-from .analyze import AnalyzeCommand
+from .analyze import AnalyzeCommand, PlotCommand
 from .experiment import ExperimentCommand, BatchCommand, SweepCommand, CompareCommand
 from .optimization import (
     OptimizePerformanceCommand,
@@ -29,11 +29,12 @@ from . import runtime
 
 __all__ = [
     "RunCommand",
-    "ConfigCommand", 
+    "ConfigCommand",
     "AnalyzeCommand",
+    "PlotCommand",
     "ExperimentCommand",
     "BatchCommand",
-    "SweepCommand", 
+    "SweepCommand",
     "CompareCommand",
     "OptimizePerformanceCommand",
     "OptimizeParametersCommand",
@@ -45,7 +46,7 @@ __all__ = [
     "InitCommand",
     # New command modules
     "spatial",
-    "visualization", 
+    "visualization",
     "display",
     "data_analysis",
     "excel_reports",

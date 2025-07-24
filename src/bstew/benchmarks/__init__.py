@@ -13,7 +13,7 @@ from .benchmark_runner import BenchmarkRunner
 
 __all__ = [
     "NetLogoParityBenchmarks",
-    "PerformanceRegressionSuite", 
+    "PerformanceRegressionSuite",
     "ScalabilityBenchmarks",
-    "BenchmarkRunner"
+    "BenchmarkRunner",
 ]

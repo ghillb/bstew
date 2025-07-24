@@ -31,7 +31,7 @@ class TestBeeModelInitialization:
                     "cell_size": 20.0,
                 },
                 "colony": {
-                    "species": "bombus_terrestris",
+                    "species": "BOMBUS_TERRESTRIS",
                     "initial_population": {
                         "queens": 1,
                         "workers": 100,
@@ -71,8 +71,8 @@ class TestBeeModelInitialization:
         # Check first colony
         colony = self.model.colonies[0]
         assert isinstance(colony, Colony)
-        # Species may default to apis_mellifera based on default config
-        assert colony.species in ["bombus_terrestris", "apis_mellifera"]
+        # Species may default to APIS_MELLIFERA based on default config
+        assert colony.species in ["BOMBUS_TERRESTRIS", "APIS_MELLIFERA"]
 
     def test_component_initialization(self):
         """Test component initialization"""
@@ -137,7 +137,7 @@ class TestBeeModelSimulation:
                     "cell_size": 20.0,
                 },
                 "colony": {
-                    "species": "bombus_terrestris",
+                    "species": "BOMBUS_TERRESTRIS",
                     "initial_population": {
                         "queens": 1,
                         "workers": 20,
@@ -271,7 +271,7 @@ class TestBeeModelDataCollection:
                     "cell_size": 20.0,
                 },
                 "colony": {
-                    "species": "bombus_terrestris",
+                    "species": "BOMBUS_TERRESTRIS",
                     "initial_population": {
                         "queens": 1,
                         "workers": 20,
@@ -390,7 +390,7 @@ class TestBeeModelEnvironmentalIntegration:
                     "cell_size": 20.0,
                 },
                 "colony": {
-                    "species": "bombus_terrestris",
+                    "species": "BOMBUS_TERRESTRIS",
                     "initial_population": {
                         "queens": 1,
                         "workers": 20,
@@ -480,7 +480,7 @@ class TestBeeModelColonyManagement:
                     "cell_size": 20.0,
                 },
                 "colony": {
-                    "species": "bombus_terrestris",
+                    "species": "BOMBUS_TERRESTRIS",
                     "initial_population": {
                         "queens": 1,
                         "workers": 50,
@@ -500,7 +500,7 @@ class TestBeeModelColonyManagement:
 
         # Create new colony
         new_colony = self.model.create_colony(
-            species="bombus_terrestris",
+            species="BOMBUS_TERRESTRIS",
             location=(75, 75),
             initial_population={"queens": 1, "workers": 20},
         )
@@ -551,7 +551,7 @@ class TestBeeModelColonyManagement:
         """Test interactions between multiple colonies"""
         # Create second colony
         self.model.create_colony(
-            species="bombus_terrestris",
+            species="BOMBUS_TERRESTRIS",
             location=(25, 25),
             initial_population={"queens": 1, "workers": 30},
         )
@@ -591,7 +591,7 @@ class TestBeeModelOptimization:
                     "cell_size": 20.0,
                 },
                 "colony": {
-                    "species": "bombus_terrestris",
+                    "species": "BOMBUS_TERRESTRIS",
                     "initial_population": {
                         "queens": 1,
                         "workers": 50,
@@ -700,7 +700,7 @@ class TestBeeModelValidation:
                     "cell_size": 20.0,
                 },
                 "colony": {
-                    "species": "bombus_terrestris",
+                    "species": "BOMBUS_TERRESTRIS",
                     "initial_population": {
                         "queens": 1,
                         "workers": 50,

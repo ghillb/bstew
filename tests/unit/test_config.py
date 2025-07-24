@@ -39,7 +39,7 @@ class TestBstewConfig:
 
         # Check some default values
         assert config.simulation.duration_days == 365
-        assert config.colony.species == "apis_mellifera"
+        assert config.colony.species == "APIS_MELLIFERA"
         assert config.environment.cell_size == 20.0
 
     def test_config_to_dict(self):
@@ -61,7 +61,7 @@ class TestBstewConfig:
         data = {
             "simulation": {"duration_days": 180, "random_seed": 12345},
             "colony": {
-                "species": "bombus_terrestris",
+                "species": "BOMBUS_TERRESTRIS",
                 "initial_population": {"queens": 1, "workers": 100},
             },
         }
@@ -70,7 +70,7 @@ class TestBstewConfig:
 
         assert config.simulation.duration_days == 180
         assert config.simulation.random_seed == 12345
-        assert config.colony.species == "bombus_terrestris"
+        assert config.colony.species == "BOMBUS_TERRESTRIS"
         assert config.colony.initial_population["queens"] == 1
 
     def test_partial_config_from_dict(self):
@@ -82,7 +82,7 @@ class TestBstewConfig:
         # Should override only specified values
         assert config.simulation.duration_days == 100
         # Should keep defaults for unspecified values
-        assert config.colony.species == "apis_mellifera"
+        assert config.colony.species == "APIS_MELLIFERA"
         assert config.environment.cell_size == 20.0
 
 
@@ -202,7 +202,7 @@ class TestConfigManager:
         """Test configuration merging"""
         base_config = BstewConfig()
         base_config.simulation.duration_days = 365
-        base_config.colony.species = "apis_mellifera"
+        base_config.colony.species = "APIS_MELLIFERA"
 
         override_config = BstewConfig()
         override_config.simulation.duration_days = 180
@@ -215,7 +215,7 @@ class TestConfigManager:
         assert not merged_config.disease.enable_varroa
 
         # Base values should be preserved where not overridden
-        assert merged_config.colony.species == "apis_mellifera"
+        assert merged_config.colony.species == "APIS_MELLIFERA"
 
     def test_config_validation(self):
         """Test configuration validation"""
@@ -345,7 +345,7 @@ class TestConfigSerialization:
         """Test YAML serialization roundtrip"""
         original_config = BstewConfig()
         original_config.simulation.duration_days = 500
-        original_config.colony.species = "bombus_terrestris"
+        original_config.colony.species = "BOMBUS_TERRESTRIS"
         original_config.environment.landscape_width = 200
         original_config.disease.enable_varroa = False
 
@@ -359,7 +359,7 @@ class TestConfigSerialization:
 
         # Check that all values are preserved
         assert loaded_config.simulation.duration_days == 500
-        assert loaded_config.colony.species == "bombus_terrestris"
+        assert loaded_config.colony.species == "BOMBUS_TERRESTRIS"
         assert loaded_config.environment.landscape_width == 200
         assert not loaded_config.disease.enable_varroa
 
@@ -369,7 +369,7 @@ class TestConfigSerialization:
 
         base_dict = {
             "simulation": {"duration_days": 365, "timestep": 1.0},
-            "colony": {"species": "apis_mellifera"},
+            "colony": {"species": "APIS_MELLIFERA"},
         }
 
         override_dict = {
@@ -381,7 +381,7 @@ class TestConfigSerialization:
 
         # Should preserve base values where not overridden
         assert merged["simulation"]["timestep"] == 1.0
-        assert merged["colony"]["species"] == "apis_mellifera"
+        assert merged["colony"]["species"] == "APIS_MELLIFERA"
 
         # Should override specified values
         assert merged["simulation"]["duration_days"] == 180

@@ -419,8 +419,9 @@ class DataExporter:
     def export_to_json(self, data: Dict[str, Any], output_path: Path) -> str:
         """Export dictionary data to JSON file"""
         import json
+
         try:
-            with open(output_path, 'w') as f:
+            with open(output_path, "w") as f:
                 json.dump(data, f, indent=2, default=str)
             self.logger.info(f"Exported data to {output_path}")
             return str(output_path)

@@ -695,7 +695,7 @@ def save_plots_to_pdf(figures: List[plt.Figure], output_path: str) -> None:
     """Save multiple figures to a single PDF"""
     from matplotlib.backends.backend_pdf import PdfPages
 
-    with PdfPages(output_path) as pdf:  # type: ignore[no-untyped-call]
+    with PdfPages(output_path) as pdf:
         for fig in figures:
             pdf.savefig(fig, bbox_inches="tight")
 

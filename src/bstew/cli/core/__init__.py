@@ -11,7 +11,7 @@ from .validation import InputValidator, ConfigValidator
 
 __all__ = [
     "BaseCLICommand",
-    "CLIContext", 
+    "CLIContext",
     "RichProgressReporter",
     "ProgressManager",
     "InputValidator",

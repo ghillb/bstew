@@ -1,0 +1,82 @@
+# Multi-Species Pollinator Configuration
+# ======================================
+#
+# Comparative study with honey bees and multiple bumblebee species
+# demonstrating different communication strategies and colony structures.
+
+simulation:
+  name: "Multi-Species Pollinator Study"
+  duration_days: 150
+  timestep: 1.0  
+  random_seed: 42
+  output_frequency: 1
+
+# Multiple species with different colonies
+species_configurations:
+  
+  # Single honey bee colony - large and social
+  honey_bee:
+    species: "APIS_MELLIFERA"
+    colonies: 1
+    initial_population:
+      queens: 1
+      workers: 35000
+      foragers: 12000
+      drones: 1500
+      brood: 6000
+    locations: [[100.0, 100.0]]  # Center of landscape
+    
+  # Multiple bumblebee colonies - small and individual
+  large_earth_bumblebee:
+    species: "BOMBUS_TERRESTRIS" 
+    colonies: 3
+    initial_population:
+      queens: 1
+      workers: 200
+      foragers: 50
+      drones: 25
+      brood: 100
+    locations: 
+      - [50.0, 50.0]
+      - [150.0, 50.0] 
+      - [100.0, 150.0]
+  
+  red_tailed_bumblebee:
+    species: "BOMBUS_LAPIDARIUS"
+    colonies: 2
+    initial_population:
+      queens: 1
+      workers: 150
+      foragers: 40
+      drones: 20
+      brood: 80
+    locations:
+      - [75.0, 125.0]
+      - [125.0, 75.0]
+
+environment:
+  landscape_width: 200
+  landscape_height: 200
+  cell_size: 20.0
+  flower_patches: 80        # Rich flower environment
+  patch_regeneration: 0.05
+  seasonal_effects: true
+
+# Foraging parameters adapted per species automatically
+foraging:
+  energy_cost_per_meter: 0.01
+  weather_effects: true
+
+# Analysis focuses on species comparison
+analysis:
+  track_communication_events: true
+  track_species_interactions: true
+  track_resource_competition: true
+  comparative_metrics: true
+
+output:
+  output_directory: "results/multi_species_study"
+  save_plots: true
+  save_csv: true
+  save_species_breakdown: true
+  include_communication_analysis: true

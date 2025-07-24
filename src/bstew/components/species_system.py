@@ -722,7 +722,7 @@ class SpeciesSystem:
 
         # Sort species by suitability
         sorted_species = sorted(
-            species_suitability.items(), key=lambda x: x[1], reverse=True
+            species_suitability.items(), key=lambda x: float(x[1]), reverse=True
         )
 
         remaining_capacity = total_capacity

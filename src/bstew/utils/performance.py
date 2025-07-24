@@ -120,7 +120,9 @@ class PerformanceConfig(BaseModel):
     optimization_enabled: bool = Field(
         default=True, description="Enable optimization features"
     )
-    cache_dir: str = Field(default="artifacts/cache", description="Cache directory path")
+    cache_dir: str = Field(
+        default="artifacts/cache", description="Cache directory path"
+    )
 
 
 class MemoryManager:
@@ -237,11 +239,7 @@ class MemoryManager:
 
         return {
             "current_usage_mb": memory_info.rss / (1024**2),
-            "peak_usage_mb": (
-                memory_info.peak_wss / (1024**2)
-                if hasattr(memory_info, "peak_wss")
-                else 0
-            ),
+            "peak_usage_mb": (getattr(memory_info, "peak_wss", 0) / (1024**2)),
             "virtual_memory_mb": memory_info.vms / (1024**2),
             "memory_percent": (memory_info.rss / self.memory_limit) * 100,
             "gc_counts": gc.get_count(),
@@ -350,8 +348,8 @@ class CacheManager:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO cache_entries 
-                    (key, data, timestamp, size_bytes) 
+                    INSERT OR REPLACE INTO cache_entries
+                    (key, data, timestamp, size_bytes)
                     VALUES (?, ?, ?, ?)
                 """,
                     (key, data_bytes, time.time(), data_size),
@@ -639,71 +637,74 @@ class PerformanceProfiler:
             )
 
         return recommendations
-    
-    def profile_simulation(self, config: Dict[str, Any], steps: int, 
-                          output_directory: str) -> Dict[str, Any]:
+
+    def profile_simulation(
+        self, config: Dict[str, Any], steps: int, output_directory: str
+    ) -> Dict[str, Any]:
         """Profile a complete simulation run"""
         import psutil
         from pathlib import Path
-        
+
         # Ensure output directory exists
         Path(output_directory).mkdir(parents=True, exist_ok=True)
-        
+
         # Start overall profiling
         self.start_profile("simulation_complete")
-        
+
         # Monitor initial state
         process = psutil.Process()
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
         start_time = time.time()
-        
+
         try:
             # Import here to avoid circular imports
             from ..core.model import BeeModel
-            
+
             # Profile model initialization
             self.start_profile("model_initialization")
             model = BeeModel(config=config)
             self.end_profile("model_initialization")
-            
+
             # Profile simulation steps
             self.start_profile("simulation_steps")
             for step in range(steps):
                 step_start = time.time()
                 model.step()
                 step_time = time.time() - step_start
-                
+
                 # Log step performance data
-                self.profile_data["step_performance"].append({
-                    "step": step,
-                    "duration": step_time,
-                    "memory": process.memory_info().rss / 1024 / 1024,
-                    "timestamp": time.time()
-                })
-            
+                self.profile_data["step_performance"].append(
+                    {
+                        "step": step,
+                        "duration": step_time,
+                        "memory": process.memory_info().rss / 1024 / 1024,
+                        "timestamp": time.time(),
+                    }
+                )
+
             self.end_profile("simulation_steps")
-            
+
             # Profile cleanup
             self.start_profile("model_cleanup")
             model.cleanup()
             self.end_profile("model_cleanup")
-            
+
         except Exception as e:
             # Still end profiling even if simulation fails
             self.end_profile("simulation_complete")
             raise e
-        
+
         # End overall profiling
         self.end_profile("simulation_complete")
-        
+
         # Calculate final metrics
         end_time = time.time()
         final_memory = process.memory_info().rss / 1024 / 1024
         total_time = end_time - start_time
-        
+
         # Generate comprehensive results
         performance_report = self.get_performance_report()
-        
+
         results = {
             "performance_metrics": {
                 "simulation_time": total_time,
@@ -711,28 +712,35 @@ class PerformanceProfiler:
                 "memory_peak": final_memory,
                 "memory_usage": final_memory - initial_memory,
                 "cpu_usage": process.cpu_percent(),
-                "efficiency_score": self._calculate_efficiency_score(steps, total_time, final_memory)
+                "efficiency_score": self._calculate_efficiency_score(
+                    steps, total_time, final_memory
+                ),
             },
             "function_timings": performance_report.get("function_profiles", {}),
             "bottlenecks": performance_report.get("bottlenecks", []),
             "recommendations": performance_report.get("recommendations", []),
-            "step_performance": self.profile_data.get("step_performance", [])
+            "step_performance": self.profile_data.get("step_performance", []),
         }
-        
+
         # Save results to file
         import json
+
         output_file = Path(output_directory) / "profiling_results.json"
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(results, f, indent=2, default=str)
-        
+
         return results
-    
-    def _calculate_efficiency_score(self, steps: int, total_time: float, memory_mb: float) -> float:
+
+    def _calculate_efficiency_score(
+        self, steps: int, total_time: float, memory_mb: float
+    ) -> float:
         """Calculate an efficiency score based on performance metrics"""
         # Normalize metrics (these are rough estimates for scoring)
-        time_score = min(1.0, 1000 / (total_time * 1000 / steps))  # Prefer faster step execution
+        time_score = min(
+            1.0, 1000 / (total_time * 1000 / steps)
+        )  # Prefer faster step execution
         memory_score = min(1.0, 500 / memory_mb)  # Prefer lower memory usage
-        
+
         # Weighted average (time is more important than memory)
         efficiency = (time_score * 0.7) + (memory_score * 0.3)
         return efficiency

@@ -10,16 +10,17 @@ from enum import Enum
 
 class BeeStatus(Enum):
     """Enumeration of bee status states - expanded to match NetLogo BEE-STEWARD v2"""
+
     # Basic life status
     ALIVE = "alive"
     DEAD = "dead"
-    
+
     # Hibernation and dormancy
     HIBERNATING = "hibernating"
-    
+
     # Nest construction and maintenance
     NEST_CONSTRUCTION = "nest_construction"
-    
+
     # Foraging activities
     SEARCHING = "searching"
     RETURNING_EMPTY = "returning_empty"
@@ -33,16 +34,16 @@ class BeeStatus(Enum):
     COLLECT_POLLEN = "collect_pollen"
     BRINGING_POLLEN = "bringing_pollen"
     EXPERIMENTAL_FORAGING_POLLEN = "experimental_foraging_pollen"
-    
+
     # Reproductive activities
     EGG_LAYING = "egg_laying"
-    
+
     # Colony maintenance
     NURSING = "nursing"
-    
+
     # Communication
     DANCING = "dancing"
-    
+
     # General states
     RESTING = "resting"
     FORAGING = "foraging"  # Kept for backward compatibility
@@ -50,6 +51,7 @@ class BeeStatus(Enum):
 
 class BeeRole(Enum):
     """Enumeration of bee roles within the colony"""
+
     QUEEN = "queen"
     NURSE = "nurse"
     FORAGER = "forager"
@@ -61,6 +63,7 @@ class BeeRole(Enum):
 
 class ActivityStateCategory(Enum):
     """Categories of activity states"""
+
     FORAGING = "foraging"
     COMMUNICATION = "communication"
     MAINTENANCE = "maintenance"

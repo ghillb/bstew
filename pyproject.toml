@@ -1,6 +1,6 @@
 [project]
 name = "bstew"
-version = "0.1.0"
+version = "1.0.0"
 description = "BeeSteward v2 Python transpilation - Agent-based pollinator population modeling"
 authors = [
     {name = "BSTEW Team"}
@@ -32,6 +32,9 @@ dependencies = [
     "ipywidgets>=8.1.7",
     "dash-bootstrap-components>=2.0.3",
     "reportlab>=4.4.2",
+    "psutil>=7.0.0",
+    "networkx>=3.5",
+    "streamlit>=1.32.0",
 ]
 
 [project.optional-dependencies]
@@ -62,6 +65,37 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+show_error_codes = true
+warn_unused_ignores = true
+exclude = [
+    "tests/",
+    "docs/",
+    "build/",
+    "dist/",
+]
+
+# Ignore missing imports for libraries without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "plotly.*",
+    "sklearn.*",
+    "mesa.*",
+    "rasterio.*",
+    "geopandas.*",
+    "dash_bootstrap_components.*",
+    "dash.*",
+    "xarray.*",
+    "SALib.*",
+    "fiona.*",
+    "ipywidgets.*",
+    "pyproj.*",
+    "jinja2.*",
+    "shapely.*",
+    "seaborn.*",
+    "reportlab.*",
+    "streamlit.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -91,9 +125,16 @@ dev-dependencies = [
     "black>=25.1.0",
     "mypy>=1.16.1",
     "pandas-stubs>=2.2.2.240807",
+    "pre-commit>=4.2.0",
     "pytest-cov>=6.2.1",
     "ruff>=0.12.2",
     "scipy-stubs>=1.15.3.0",
+    "types-networkx>=3.5.0.20250712",
+    "types-openpyxl>=3.1.5.20250602",
+    "types-psutil>=7.0.0.20250601",
     "types-pyyaml>=6.0.12.20250516",
+    "types-reportlab>=4.4.1.20250602",
     "types-requests>=2.32.4.20250611",
+    "types-seaborn>=0.13.2.20250516",
+    "types-shapely>=2.1.0.20250710",
 ]

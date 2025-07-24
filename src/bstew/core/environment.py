@@ -340,7 +340,7 @@ class Environment(mesa.Model):
         colony_summaries = []
         for colony in self.colonies:
             summary = {
-                "id": colony.id,  # type: ignore[attr-defined]
+                "id": colony.id,
                 "species": colony.species,
                 "location": colony.location,
                 "health": colony.health.value,

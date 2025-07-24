@@ -1,0 +1,88 @@
+# BSTEW Multi-Species Simulation Configuration
+# ============================================
+# 
+# This YAML file demonstrates how to configure a multi-species
+# pollinator simulation in BSTEW.
+
+simulation:
+  name: "Comparative_Pollinator_Study"
+  description: "Study comparing honey bee and bumblebee foraging patterns"
+  duration_days: 120
+  time_step_minutes: 15
+  
+  # Environment configuration
+  environment:
+    landscape_size: [2000.0, 2000.0]  # meters
+    temperature_range: [8.0, 28.0]    # Celsius
+    flower_patch_count: 75
+    resource_regeneration_rate: 0.05
+  
+  # Species configurations
+  species:
+    # Honey bee colony
+    - type: "APIS_MELLIFERA"
+      colonies: 1
+      configuration:
+        initial_population: 35000
+        forager_proportion: 0.3
+        location: [1000.0, 1000.0]
+        communication_enabled: true
+        dance_communication: true
+        social_learning: true
+        
+    # Large earth bumblebee colonies  
+    - type: "BOMBUS_TERRESTRIS"
+      colonies: 4
+      configuration:
+        initial_population: 180
+        forager_proportion: 0.25
+        locations:
+          - [500.0, 500.0]
+          - [1500.0, 500.0] 
+          - [500.0, 1500.0]
+          - [1500.0, 1500.0]
+        communication_enabled: true
+        scent_communication: true
+        individual_decision_weight: 0.9
+        
+    # Red-tailed bumblebee colonies
+    - type: "BOMBUS_LAPIDARIUS"  
+      colonies: 2
+      configuration:
+        initial_population: 120
+        forager_proportion: 0.3
+        locations:
+          - [750.0, 1250.0]
+          - [1250.0, 750.0]
+        communication_enabled: true
+        scent_communication: true
+        individual_decision_weight: 0.92
+
+  # Analysis configuration
+  analysis:
+    metrics:
+      - foraging_efficiency
+      - communication_patterns
+      - species_interactions
+      - resource_competition
+      - pollination_effectiveness
+    
+    output_frequency: "daily"
+    save_individual_tracks: false
+    save_communication_events: true
+    
+  # Output configuration  
+  output:
+    directory: "results/comparative_study"
+    formats: ["json", "csv", "hdf5"]
+    include_visualizations: true
+    
+# Custom species parameters (optional overrides)
+species_overrides:
+  BOMBUS_TERRESTRIS:
+    max_foraging_distance_m: 1200  # Shorter than default
+    social_information_sharing: 0.25  # Slightly higher
+    
+  BOMBUS_LAPIDARIUS:
+    proboscis_length_mm: 8.5  # Custom measurement
+    flight_speed_ms: 4.0

@@ -133,3 +133,5 @@ plots/
 
 # Execution tracking
 test_execution_tracker.md
+.tmux-pm/
+test_results/

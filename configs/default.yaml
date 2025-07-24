@@ -1,5 +1,5 @@
 simulation:
-  duration_days: 365
+  duration_days: 180
   timestep: 1.0
   random_seed: 42
   start_date: "2024-01-01"
@@ -9,11 +9,11 @@ simulation:
 colony:
   initial_population:
     queens: 1
-    workers: 5000
-    foragers: 1000
-    drones: 100
-    brood: 2000
-  species: "apis_mellifera"
+    workers: 250
+    foragers: 60
+    drones: 30
+    brood: 120
+  species: "BOMBUS_TERRESTRIS"
   location: [52.5, -1.2]  # lat, lon
   colony_strength: 1.0
   genetic_diversity: 0.1
@@ -35,10 +35,10 @@ disease:
   natural_resistance: 0.1
 
 foraging:
-  max_foraging_range: 2000.0
-  dance_threshold: 0.5
-  recruitment_efficiency: 0.1
-  energy_cost_per_meter: 0.01
+  max_foraging_range: 1500.0
+  dance_threshold: 0.0
+  recruitment_efficiency: 0.15
+  energy_cost_per_meter: 0.012
 
 output:
   output_directory: "results"

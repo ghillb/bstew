@@ -1040,6 +1040,8 @@ def convert_netlogo_to_bstew(
         else:
             raise ValueError(f"Unsupported output format: {output_path.suffix}")
 
-        logging.getLogger(__name__).info(f"BSTEW configuration exported to {output_path}")
+        logging.getLogger(__name__).info(
+            f"BSTEW configuration exported to {output_path}"
+        )
 
     return bstew_config

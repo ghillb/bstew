@@ -1,0 +1,11 @@
+{
+  "agents": [
+    {"id": 1, "x": 10.5, "y": 20.3, "species": "apis_mellifera", "state": "foraging"},
+    {"id": 2, "x": 15.2, "y": 25.1, "species": "apis_mellifera", "state": "nursing"},
+    {"id": 3, "x": 8.7, "y": 18.9, "species": "bombus_terrestris", "state": "active"}
+  ],
+  "patches": [
+    {"id": 1, "x": 12.0, "y": 22.0, "type": "flower", "area": 5.5, "quality": 0.8},
+    {"id": 2, "x": 18.3, "y": 27.8, "type": "nest", "area": 2.1, "quality": 0.9}
+  ]
+}

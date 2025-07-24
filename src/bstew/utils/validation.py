@@ -55,7 +55,8 @@ class ComparisonMetrics(BaseModel):
     ks_statistic: float = Field(ge=0.0, description="Kolmogorov-Smirnov statistic")
     ks_p_value: float = Field(ge=0.0, le=1.0, description="Kolmogorov-Smirnov p-value")
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def agreement_score(self) -> float:
         """Overall agreement score (0-1)"""
         return (
@@ -264,7 +265,7 @@ class OutputComparator:
         self,
         netlogo_data: pd.DataFrame,
         bstew_data: pd.DataFrame,
-        metrics: List[str] = None,  # type: ignore[assignment]
+        metrics: Optional[List[str]] = None,
     ) -> Dict[str, ValidationResult]:
         """Compare time series outputs between models"""
 
@@ -318,7 +319,7 @@ class OutputComparator:
             results[metric] = ValidationResult(
                 test_name=f"timeseries_{metric}",
                 passed=passed,
-                score=comp_metrics.agreement_score,  # type: ignore
+                score=comp_metrics.agreement_score,
                 p_value=comp_metrics.p_value,
                 details=comp_metrics.__dict__,
                 recommendation=recommendation,
@@ -381,7 +382,9 @@ class OutputComparator:
 
             return netlogo_interp, bstew_interp
         else:
-            return netlogo_filtered[metric].values, bstew_filtered[metric].values  # type: ignore[return-value]
+            return np.asarray(netlogo_filtered[metric].values), np.asarray(
+                bstew_filtered[metric].values
+            )
 
     def _calculate_comparison_metrics(
         self, netlogo_values: np.ndarray, bstew_values: np.ndarray
@@ -549,7 +552,7 @@ class ModelValidator:
         self,
         netlogo_data: Dict[str, Any],
         bstew_data: Dict[str, Any],
-        validation_config: Dict[str, Any] = None,  # type: ignore[assignment]
+        validation_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Run complete validation suite"""
 

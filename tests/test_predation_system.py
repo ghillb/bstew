@@ -65,7 +65,7 @@ class TestPredationSystem:
         # Test distance to known location
         target = (badger.location[0] + 100, badger.location[1])
         distance = badger.calculate_distance_to(target)
-        assert distance == 100.0
+        assert abs(distance - 100.0) < 1e-10
 
     def test_seasonal_activity(self):
         """Test seasonal activity patterns"""

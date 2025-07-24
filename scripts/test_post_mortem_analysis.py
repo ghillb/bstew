@@ -422,9 +422,9 @@ def test_post_mortem_analysis():
     print(f"   Trends analyzed: {len(trend_analyses)}")
     print("   Report formats: 3 (JSON, Markdown, HTML)")
     
-    return temp_dir
+    # No return value for test function
 
 if __name__ == "__main__":
-    temp_dir = test_post_mortem_analysis()
-    print(f"\nGenerated reports available at: {temp_dir}")
+    test_post_mortem_analysis()
+    print("\nTest completed successfully")
     print("You can open the HTML report in a web browser to view the formatted analysis.")

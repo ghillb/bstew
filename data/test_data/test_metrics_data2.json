@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2023-02-01",
+    "population": 4800,
+    "honey_production": 95,
+    "foraging_trips": 190
+  },
+  {
+    "timestamp": "2023-02-02",
+    "population": 5100,
+    "honey_production": 115,
+    "foraging_trips": 210
+  },
+  {
+    "timestamp": "2023-02-03",
+    "population": 5300,
+    "honey_production": 130,
+    "foraging_trips": 240
+  }
+]

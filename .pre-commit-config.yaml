@@ -1,0 +1,98 @@
+repos:
+  # Security scanning for hardcoded secrets
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.27.1
+    hooks:
+      - id: gitleaks
+        name: "🔒 security · Detect hardcoded secrets"
+
+  # Python formatting and linting with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        name: "🐍 python · Lint with Ruff"
+        files: ^src/.*\.py$
+      - id: ruff-format
+        name: "🐍 python · Format with Ruff"
+        files: ^src/.*\.py$
+
+  # Type checking with MyPy
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.0
+    hooks:
+      - id: mypy
+        name: "🐍 python · Type check with MyPy"
+        args: [--config-file=pyproject.toml]
+        files: ^src/.*\.py$
+        exclude: ^tests/
+        additional_dependencies:
+          # Core packages that MyPy needs to import
+          - pydantic
+          - typer
+          - rich
+          - numpy
+          - pandas
+          - matplotlib
+          - scipy
+          - networkx
+          - pillow
+          - requests
+          - pyyaml
+          - openpyxl
+          - psutil
+          - seaborn
+          - shapely
+          - reportlab
+          - pyproj
+          - jinja2
+          - dash
+          # Type stubs
+          - pandas-stubs
+          - scipy-stubs
+          - types-requests
+          - types-PyYAML
+          - types-openpyxl
+          - types-networkx
+          - types-psutil
+          - types-seaborn
+          - types-shapely
+          - types-reportlab
+
+  # Testing with pytest - only runs in manual stage
+  - repo: local
+    hooks:
+      - id: pytest
+        name: "🧪 python · Run pytest tests"
+        entry: uv run pytest
+        language: system
+        files: ^(src|tests)/.*\.py$
+        pass_filenames: false
+        stages: [manual]
+
+  # Basic quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: "📝 quality · Remove trailing whitespace"
+        files: ^(src|tests)/
+      - id: end-of-file-fixer
+        name: "📝 quality · Fix end of files"
+        files: ^(src|tests)/
+      - id: check-yaml
+        name: "📝 quality · Check YAML syntax"
+        files: ^.*\.ya?ml$
+      - id: check-merge-conflict
+        name: "📝 quality · Check for merge conflicts"
+        files: ^(src|tests)/
+      - id: debug-statements
+        name: "🐍 python · Check for debug statements"
+        files: ^(src|tests)/.*\.py$
+      - id: check-toml
+        name: "📝 quality · Check TOML syntax"
+        files: ^.*\.toml$
+      - id: check-json
+        name: "📝 quality · Check JSON syntax"
+        files: ^.*\.json$

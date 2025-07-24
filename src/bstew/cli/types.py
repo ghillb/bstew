@@ -12,7 +12,7 @@ from enum import Enum
 
 class OutputFormat(Enum):
     """Supported output formats"""
-    
+
     TABLE = "table"
     JSON = "json"
     CSV = "csv"
@@ -22,7 +22,7 @@ class OutputFormat(Enum):
 
 class VerbosityLevel(Enum):
     """CLI verbosity levels"""
-    
+
     QUIET = 0
     NORMAL = 1
     VERBOSE = 2
@@ -31,7 +31,7 @@ class VerbosityLevel(Enum):
 
 class CLIResult:
     """Standard result object for CLI operations"""
-    
+
     def __init__(
         self,
         success: bool,
@@ -43,18 +43,18 @@ class CLIResult:
         self.message = message
         self.data = data or {}
         self.exit_code = exit_code
-    
+
     def __bool__(self) -> bool:
         return self.success
 
 
 class CLICommand(Protocol):
     """Protocol for CLI command implementations"""
-    
+
     def execute(self, **kwargs: Any) -> CLIResult:
         """Execute the command with given parameters"""
         ...
-    
+
     def validate_inputs(self, **kwargs: Any) -> List[str]:
         """Validate command inputs, return list of error messages"""
         ...
@@ -62,15 +62,17 @@ class CLICommand(Protocol):
 
 class ProgressReporter(Protocol):
     """Protocol for progress reporting in commands"""
-    
+
     def start_task(self, description: str, total: Optional[int] = None) -> str:
         """Start a new progress task, return task ID"""
         ...
-    
-    def update_task(self, task_id: str, advance: int = 1, description: Optional[str] = None) -> None:
+
+    def update_task(
+        self, task_id: str, advance: int = 1, description: Optional[str] = None
+    ) -> None:
         """Update progress task"""
         ...
-    
+
     def finish_task(self, task_id: str, description: Optional[str] = None) -> None:
         """Mark task as finished"""
         ...
@@ -78,15 +80,15 @@ class ProgressReporter(Protocol):
 
 class ConfigProvider(Protocol):
     """Protocol for configuration providers"""
-    
+
     def load_config(self, path: Union[str, Path]) -> Dict[str, Any]:
         """Load configuration from file"""
         ...
-    
+
     def validate_config(self, config: Dict[str, Any]) -> List[str]:
         """Validate configuration, return list of error messages"""
         ...
-    
+
     def get_default_config(self) -> Dict[str, Any]:
         """Get default configuration"""
         ...
@@ -94,7 +96,7 @@ class ConfigProvider(Protocol):
 
 class ResultFormatter(Protocol):
     """Protocol for result formatters"""
-    
+
     def format_results(
         self,
         data: Dict[str, Any],

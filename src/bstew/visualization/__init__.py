@@ -11,13 +11,13 @@ from .live_visualization import (
     VisualizationEngine,
     VisualizationType,
     VisualizationData,
-    create_live_visualization_system
+    create_live_visualization_system,
 )
 
 __all__ = [
-    'LiveVisualizationManager',
-    'VisualizationEngine', 
-    'VisualizationType',
-    'VisualizationData',
-    'create_live_visualization_system'
+    "LiveVisualizationManager",
+    "VisualizationEngine",
+    "VisualizationType",
+    "VisualizationData",
+    "create_live_visualization_system",
 ]

@@ -6,7 +6,7 @@ Manages bee populations, resources, and colony-level behaviors.
 Integrates with the mathematical foundations for population dynamics.
 """
 
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from pydantic import BaseModel, Field, computed_field
 from enum import Enum
 import logging
@@ -73,7 +73,8 @@ class ResourceStores(BaseModel):
     wax: float = Field(default=0.0, ge=0.0, description="Wax stores in mg")
     propolis: float = Field(default=0.0, ge=0.0, description="Propolis stores in mg")
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def total_food(self) -> float:
         """Total food resources available"""
         return self.pollen + self.nectar + self.honey
@@ -129,7 +130,7 @@ class Colony:
         species: str,
         location: Tuple[float, float],
         initial_population: Any,
-        unique_id: int = None,  # type: ignore[assignment]
+        unique_id: Optional[int] = None,
     ):
         self.model = model
         self.species = species
@@ -186,6 +187,12 @@ class Colony:
         self.resources = ResourceStores()
         self.disease_status = DiseaseStatus()
         self.health = ColonyHealth.HEALTHY
+
+        # Disease models (placeholders for compatibility)
+        self.mite_model = None
+        self.virus_model = None
+        self.nosema_model = None
+        self.treatment_manager = None
         self.pheromone_level = 100.0
         self.comb_cells = 10000  # Available comb cells
         self.occupied_cells = 0
@@ -197,10 +204,12 @@ class Colony:
             self.typical_colony_size = self.species_params.typical_colony_size
             self.swarm_threshold = self.species_params.max_colony_size * 0.8
             self.collapse_threshold = self.species_params.typical_colony_size * 0.1
+            self.drone_production_rate = 0.1  # 10% of new bees are drones
         else:
             self.foraging_range = 2000.0  # meters
             self.max_colony_size = 50000
             self.typical_colony_size = 25000
+            self.drone_production_rate = 0.1  # 10% of new bees are drones
             self.swarm_threshold = 40000  # bee population
             self.collapse_threshold = 2500  # minimum viable population
 
@@ -296,6 +305,24 @@ class Colony:
         if bee in self.bees:
             self.bees.remove(bee)
         self.update_population_counts()
+
+    def add_agent(self, bee: BeeAgent) -> None:
+        """Add a bee to the colony (alias for add_bee)"""
+        self.add_bee(bee)
+
+    def remove_agent(self, bee: BeeAgent) -> None:
+        """Remove a bee from the colony (alias for remove_bee)"""
+        self.remove_bee(bee)
+
+    def get_queen(self) -> Queen | None:
+        """Get the current queen of the colony"""
+        queens = [bee for bee in self.bees if isinstance(bee, Queen)]
+        return queens[0] if queens else None
+
+    @property
+    def id(self) -> int:
+        """Get colony ID (alias for unique_id)"""
+        return self.unique_id
 
     def update_population_counts(self) -> None:
         """Update population counts by role"""
@@ -517,7 +544,11 @@ class Colony:
         resource_score = min(1.0, total_food / 5000.0)  # 5kg optimal
 
         # Disease health
-        infestation_level: float = self.disease_status.infestation_level  # type: ignore[assignment]
+        infestation_level: float = (
+            self.disease_status.infestation_level()
+            if callable(self.disease_status.infestation_level)
+            else self.disease_status.infestation_level
+        )
         disease_score = 1.0 - infestation_level
 
         # Overall health score
@@ -617,7 +648,7 @@ class Colony:
             return needs
 
         # Forager needs based on resource levels
-        if self.resources.total_food < total_pop * 2.0:  # type: ignore
+        if self.resources.total_food < total_pop * 2.0:
             needs.foragers = 0.8
 
         # Nurse needs based on brood ratio
@@ -626,7 +657,7 @@ class Colony:
             needs.nurses = 0.7
 
         # Food needs
-        if self.resources.total_food < total_pop * 1.0:  # type: ignore
+        if self.resources.total_food < total_pop * 1.0:
             needs.food = 0.9
 
         return needs
@@ -766,7 +797,7 @@ class Colony:
             return  # Dead or unknown type
 
         # Transfer development history
-        adult_bee.development_history = {  # type: ignore[assignment]
+        adult_bee.development_history = {
             "total_development_time": developed_bee.age_days,
             "final_weight": developed_bee.weight_mg,
             "care_received": developed_bee.cumul_energy_received,
@@ -895,7 +926,7 @@ class Colony:
                         {
                             "id": bee_id,
                             "stage": developing_bee.stage.value,
-                            "age": developing_bee.age_days,
+                            "age": int(developing_bee.age_days),
                         }
                     )
                     developing_bee.development_success = False
@@ -968,7 +999,7 @@ class Colony:
         )  # Larger colonies more attractive
         resource_factor = min(
             1.0,
-            self.resources.total_food / 5000.0,  # type: ignore
+            self.resources.total_food / 5000.0,
         )  # More resources = more attractive
         activity_factor = len(self.get_bees_by_role(BeeRole.FORAGER)) / max(
             1, self.get_adult_population()
@@ -1120,3 +1151,418 @@ class Colony:
     def get_forager_count(self) -> int:
         """Get number of forager bees"""
         return len(self.get_bees_by_role(BeeRole.FORAGER))
+
+    # ========================================================================
+    # DOCUMENTED API METHODS - Required for BstewModel integration
+    # ========================================================================
+
+    def update_population(self, day: int) -> None:
+        """
+        Update colony population dynamics for a given day.
+
+        This is the main daily population update method that integrates
+        all population processes including births, deaths, development,
+        and role transitions.
+
+        Args:
+            day: Current simulation day
+        """
+        # Store current day for reference
+        self.current_day = day
+
+        # Update age and mortality for all bees
+        self._process_bee_aging_and_mortality(day)
+
+        # Process brood development and emergence
+        self._process_brood_development(day)
+
+        # Handle reproduction and egg laying
+        self._process_reproduction(day)
+
+        # Update bee role transitions based on colony needs
+        self._process_role_transitions(day)
+
+        # Update population counts after all changes
+        self.update_population_counts()
+
+        # Update colony health status
+        self._update_colony_health(day)
+
+        # Log population status for debugging/monitoring
+        if hasattr(self, "model") and hasattr(self.model, "logger"):
+            self.model.logger.debug(
+                f"Colony {self.unique_id} Day {day}: "
+                f"Total={self.get_total_population()}, "
+                f"Queens={self.population_counts['queens']}, "
+                f"Workers={self.population_counts['workers']}, "
+                f"Foragers={self.population_counts['foragers']}"
+            )
+
+    def spawn_foragers(self, resource_patches: List[Any]) -> List[BeeAgent]:
+        """
+        Create forager bees and assign them to resource patches.
+
+        Converts available workers to foragers based on colony needs
+        and available resource opportunities.
+
+        Args:
+            resource_patches: List of available resource patches for foraging
+
+        Returns:
+            List of newly created or converted forager bees
+        """
+        new_foragers: List[Forager] = []
+
+        if not resource_patches:
+            return new_foragers
+
+        # Assess colony foraging needs
+        self.assess_needs()
+
+        # Calculate how many new foragers we need
+        current_foragers = len(self.get_bees_by_role(BeeRole.FORAGER))
+        total_adults = self.get_adult_population()
+        optimal_foragers = int(total_adults * 0.3)  # 30% of adults as foragers
+
+        needed_foragers = max(0, optimal_foragers - current_foragers)
+
+        # Don't exceed the number of available resource patches
+        needed_foragers = min(needed_foragers, len(resource_patches))
+
+        # Convert workers to foragers
+        available_workers = self.get_bees_by_role(BeeRole.WORKER)
+        workers_to_convert = min(needed_foragers, len(available_workers))
+
+        for i in range(workers_to_convert):
+            worker = available_workers[i]
+
+            # Create new forager bee
+            forager = Forager(
+                unique_id=worker.unique_id,
+                model=self.model,
+                colony=self,
+                genotype=worker.genotype,
+            )
+
+            # Transfer worker attributes
+            forager.age = worker.age
+            forager.energy = worker.energy
+            forager.location = worker.location
+
+            # Assign to a resource patch
+            patch = resource_patches[i % len(resource_patches)]
+            forager.current_target = {
+                "patch_id": getattr(patch, "id", i),
+                "location": getattr(patch, "location", self.location),
+                "resource_type": getattr(patch, "resource_type", "nectar"),
+            }
+
+            # Replace worker with forager in colony
+            self.remove_bee(worker)
+            self.add_bee(forager)
+            new_foragers.append(forager)
+
+        return new_foragers
+
+    def calculate_genetics(self) -> Dict[str, Any]:
+        """
+        Calculate and return genetic profile of the colony.
+
+        Returns:
+            Dictionary containing genetic analysis results including
+            diversity metrics, CSD status, and inbreeding coefficients
+        """
+        if not hasattr(self, "genetic_system"):
+            return {
+                "error": "Genetic system not initialized",
+                "genetic_diversity": 0.0,
+                "inbreeding_coefficient": 0.0,
+                "diploid_male_count": 0,
+                "allele_diversity": 0,
+                "total_individuals": 0,
+                "genetic_health": "poor",
+                "csd_functional": False,
+            }
+
+        # Get all bee genotypes in the colony
+        bee_genotypes = [
+            bee.genotype
+            for bee in self.bees
+            if hasattr(bee, "genotype") and bee.genotype
+        ]
+
+        if not bee_genotypes:
+            return {
+                "genetic_diversity": 0.0,
+                "inbreeding_coefficient": 0.0,
+                "diploid_male_count": 0,
+                "allele_diversity": 0,
+                "total_individuals": 0,
+                "genetic_health": "poor",  # No genetic diversity when no bees
+                "csd_functional": True,  # No diploid males when no bees
+            }
+
+        # Calculate genetic diversity
+        genetic_diversity = self.genetic_system.calculate_genetic_diversity(
+            bee_genotypes
+        )
+
+        # Get colony alleles for inbreeding calculation
+        all_alleles = []
+        for genotype in bee_genotypes:
+            all_alleles.extend(genotype.get_allele_ids())
+        colony_alleles = set(all_alleles)
+
+        # Calculate average inbreeding coefficient
+        inbreeding_coeffs = []
+        for genotype in bee_genotypes:
+            coeff = self.genetic_system.calculate_inbreeding_coefficient(
+                genotype, colony_alleles
+            )
+            inbreeding_coeffs.append(coeff)
+        inbreeding_coeff = (
+            sum(inbreeding_coeffs) / len(inbreeding_coeffs)
+            if inbreeding_coeffs
+            else 0.0
+        )
+
+        # Count diploid males
+        diploid_male_count = sum(
+            1 for genotype in bee_genotypes if genotype.is_diploid_male()
+        )
+
+        # Calculate allele diversity
+        allele_diversity = len(colony_alleles)
+
+        # Extract allelic diversity value from genetic diversity dict
+        diversity_value = (
+            genetic_diversity.get("allelic_diversity", 0.0)
+            if isinstance(genetic_diversity, dict)
+            else genetic_diversity
+        )
+
+        # Assess colony genetic health
+        genetic_health = self._assess_genetic_health(
+            diversity_value, inbreeding_coeff, diploid_male_count
+        )
+
+        return {
+            "genetic_diversity": genetic_diversity,
+            "inbreeding_coefficient": inbreeding_coeff,
+            "diploid_male_count": diploid_male_count,
+            "allele_diversity": allele_diversity,
+            "total_individuals": len(bee_genotypes),
+            "genetic_health": genetic_health,
+            "csd_functional": diploid_male_count
+            < len(bee_genotypes) * 0.1,  # < 10% diploid males
+        }
+
+    def get_population_summary(self) -> Dict[str, Any]:
+        """
+        Get comprehensive population summary for analysis and reporting.
+
+        Returns:
+            Dictionary with detailed population counts and demographics
+        """
+        # Update counts to ensure accuracy
+        self.update_population_counts()
+
+        # Calculate additional demographics
+        total_pop = self.get_total_population()
+        adult_pop = self.get_adult_population()
+
+        # Age distribution
+        age_groups = {"young": 0, "middle": 0, "old": 0}
+        for bee in self.bees:
+            if hasattr(bee, "age"):
+                if bee.age < 10:
+                    age_groups["young"] += 1
+                elif bee.age < 20:
+                    age_groups["middle"] += 1
+                else:
+                    age_groups["old"] += 1
+
+        # Health metrics
+        alive_bees = len([b for b in self.bees if b.status == BeeStatus.ALIVE])
+        dead_bees = len([b for b in self.bees if b.status == BeeStatus.DEAD])
+
+        return {
+            # Basic counts
+            "queens": self.population_counts["queens"],
+            "workers": self.population_counts["workers"],
+            "foragers": self.population_counts["foragers"],
+            "drones": self.population_counts["drones"],
+            "eggs": self.population_counts["eggs"],
+            "larvae": self.population_counts.get("larvae", 0),
+            "pupae": self.population_counts.get("pupae", 0),
+            "brood": self.population_counts["brood"],
+            # Totals
+            "total_population": total_pop,
+            "adult_population": adult_pop,
+            "alive_count": alive_bees,
+            "dead_count": dead_bees,
+            # Demographics
+            "age_distribution": age_groups,
+            # Health and status
+            "colony_health": self.health.value
+            if hasattr(self, "health")
+            else "unknown",
+            "species": self.species,
+            "location": self.location,
+            "day": getattr(self, "current_day", 0),
+        }
+
+    # ========================================================================
+    # PRIVATE HELPER METHODS for update_population
+    # ========================================================================
+
+    def _process_bee_aging_and_mortality(self, day: int) -> None:
+        """Process aging and natural mortality for all bees"""
+        bees_to_remove = []
+
+        for bee in self.bees[:]:  # Copy list to avoid modification during iteration
+            if hasattr(bee, "age"):
+                bee.age += 1
+
+                # Check for natural mortality based on age and role
+                mortality_rate = self._calculate_mortality_rate(bee)
+                if random.random() < mortality_rate:
+                    bee.status = BeeStatus.DEAD
+                    bees_to_remove.append(bee)
+
+        # Remove dead bees
+        for bee in bees_to_remove:
+            self.remove_bee(bee)
+
+    def _process_brood_development(self, day: int) -> None:
+        """Process brood development and emergence"""
+        if hasattr(self, "development_system") and self.development_system:
+            # Use development system if available
+            # DevelopmentSystem uses step method with temperature and care data
+            temperature = 30.0  # Default temperature
+            available_care = {"nurse_capacity": 1.0}  # Default care capacity
+            results = self.development_system.step(temperature, available_care)
+
+            # Process emerged bees
+            for emerged_bee in results.get("emerged_bees", []):
+                self._create_new_adult_bee()
+        else:
+            # Simple brood development simulation
+            emergence_rate = 0.1  # 10% of brood emerges daily
+            brood_count = self.population_counts.get("brood", 0)
+            new_adults = int(brood_count * emergence_rate)
+
+            # Create new adult bees
+            for _ in range(new_adults):
+                self._create_new_adult_bee()
+
+    def _process_reproduction(self, day: int) -> None:
+        """Process egg laying and reproduction"""
+        queens = self.get_bees_by_role(BeeRole.QUEEN)
+
+        for queen in queens:
+            if hasattr(queen, "energy") and queen.energy > 50:
+                # Queen lays eggs based on energy and colony needs
+                eggs_per_day = min(100, int(queen.energy / 10))
+                self.population_counts["eggs"] += eggs_per_day
+                self.population_counts["brood"] += eggs_per_day
+                queen.energy -= eggs_per_day * 0.1
+
+    def _process_role_transitions(self, day: int) -> None:
+        """Process bee role transitions based on colony needs"""
+        colony_needs = self.assess_needs()
+
+        # Convert workers to foragers if needed
+        if colony_needs.foragers > 0.7:  # High forager need
+            workers = self.get_bees_by_role(BeeRole.WORKER)
+            workers_to_convert = min(
+                len(workers) // 4, 5
+            )  # Convert up to 25% or 5 workers
+
+            for i in range(workers_to_convert):
+                if i < len(workers):
+                    worker = workers[i]
+                    forager = Forager(
+                        unique_id=worker.unique_id,
+                        model=self.model,
+                        colony=self,
+                        genotype=worker.genotype,
+                    )
+                    forager.age = worker.age
+                    forager.energy = worker.energy
+
+                    self.remove_bee(worker)
+                    self.add_bee(forager)
+
+    def _update_colony_health(self, day: int) -> None:
+        """Update colony health status based on population metrics"""
+        total_pop = self.get_total_population()
+
+        if total_pop == 0:
+            self.health = ColonyHealth.COLLAPSED
+        elif total_pop < 50:
+            self.health = ColonyHealth.DECLINING
+        elif total_pop < 100:
+            self.health = ColonyHealth.STRESSED
+        elif total_pop < 500:
+            self.health = ColonyHealth.HEALTHY
+        else:
+            self.health = ColonyHealth.THRIVING
+
+    def _calculate_mortality_rate(self, bee: BeeAgent) -> float:
+        """Calculate daily mortality rate for a bee based on age and role"""
+        base_mortality = 0.01  # 1% daily base mortality
+
+        if hasattr(bee, "age"):
+            # Increase mortality with age
+            age_factor = 1.0 + (bee.age * 0.01)  # 1% increase per day of age
+            return min(base_mortality * age_factor, 0.2)  # Cap at 20%
+
+        return base_mortality
+
+    def _create_new_adult_bee(self) -> None:
+        """Create a new adult bee from brood"""
+        # Simple worker bee creation
+        worker = Worker(
+            unique_id=self.model.next_id()
+            if hasattr(self.model, "next_id")
+            else len(self.bees),
+            model=self.model,
+            colony=self,
+        )
+        self.add_bee(worker)
+
+        # Decrease brood count
+        if self.population_counts["brood"] > 0:
+            self.population_counts["brood"] -= 1
+
+    def _assess_genetic_health(
+        self, diversity: float, inbreeding: float, diploid_males: int
+    ) -> str:
+        """Assess overall genetic health of the colony"""
+        if diversity < 0.3 or inbreeding > 0.7 or diploid_males > len(self.bees) * 0.15:
+            return "poor"
+        elif (
+            diversity < 0.5 or inbreeding > 0.5 or diploid_males > len(self.bees) * 0.1
+        ):
+            return "fair"
+        elif (
+            diversity > 0.7
+            and inbreeding < 0.3
+            and diploid_males < len(self.bees) * 0.05
+        ):
+            return "excellent"
+        else:
+            return "good"
+
+    def supersedure(self) -> None:
+        """Handle queen supersedure (replacement)"""
+        self.logger.info("Colony initiating queen supersedure")
+        # For now, just log the event - can be expanded later
+        self.add_stress("queen_replacement", 0.3)
+
+    def swarming(self) -> None:
+        """Handle colony swarming event"""
+        self.logger.info("Colony initiating swarming")
+        # For now, just log the event - can be expanded later
+        self.add_stress("swarming_preparation", 0.4)

@@ -1,0 +1,47 @@
+# Honey Bee (Apis mellifera) Configuration
+# ========================================
+# 
+# Optimized for honey bee colonies with dance communication,
+# large colony sizes, and long foraging distances.
+
+simulation:
+  duration_days: 365
+  timestep: 1.0
+  random_seed: 42
+  output_frequency: 1
+
+colony:
+  initial_population:
+    queens: 1
+    workers: 45000        # Large honey bee colony
+    foragers: 15000       # High number of foragers  
+    drones: 2000
+    brood: 8000
+  species: "APIS_MELLIFERA"
+  location: [52.5, -1.2]
+  colony_strength: 1.2    # Strong colony
+  genetic_diversity: 0.15
+
+environment:
+  landscape_width: 200    # Larger landscape for long foraging
+  landscape_height: 200
+  cell_size: 30.0
+  seasonal_effects: true
+
+foraging:
+  max_foraging_range: 6000.0  # Up to 6km for honey bees
+  dance_threshold: 0.6        # Dance for good patches
+  recruitment_efficiency: 0.8  # High recruitment via dances
+  energy_cost_per_meter: 0.008 # Efficient flight
+
+# Species-specific communication settings
+communication:
+  dance_communication: true
+  social_information_sharing: 0.9
+  individual_decision_weight: 0.3
+  colony_memory_capacity: 1000  # High memory via dances
+
+output:
+  output_directory: "results/honey_bee"
+  save_plots: true
+  save_csv: true

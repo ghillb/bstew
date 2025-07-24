@@ -8,6 +8,7 @@ import tempfile
 import shutil
 from pathlib import Path
 import sys
+from typing import Dict, Any, Generator
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -16,7 +17,7 @@ from bstew.utils.config import ConfigManager
 
 
 @pytest.fixture
-def temp_dir():
+def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test files"""
     temp_dir = Path(tempfile.mkdtemp())
     yield temp_dir
@@ -25,13 +26,13 @@ def temp_dir():
 
 
 @pytest.fixture
-def config_manager():
+def config_manager() -> ConfigManager:
     """Provide a ConfigManager instance"""
     return ConfigManager()
 
 
 @pytest.fixture
-def test_config():
+def test_config() -> Dict[str, Any]:
     """Provide a test configuration"""
     return {
         "simulation": {"duration_days": 30, "random_seed": 42},
@@ -48,7 +49,7 @@ def test_config():
 
 
 @pytest.fixture
-def large_test_config():
+def large_test_config() -> Dict[str, Any]:
     """Provide a larger test configuration for performance tests"""
     return {
         "simulation": {"duration_days": 365, "random_seed": 42},
@@ -62,7 +63,7 @@ def large_test_config():
 
 
 @pytest.fixture(autouse=True)
-def cleanup_after_test():
+def cleanup_after_test() -> Generator[None, None, None]:
     """Cleanup after each test"""
     yield
     # Force garbage collection
@@ -72,7 +73,7 @@ def cleanup_after_test():
 
 
 # Test markers
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """Configure pytest markers"""
     config.addinivalue_line("markers", "integration: mark test as integration test")
     config.addinivalue_line("markers", "performance: mark test as performance test")
@@ -80,7 +81,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unit: mark test as unit test")
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: Any, items: Any) -> None:
     """Modify test collection to add markers automatically"""
     for item in items:
         # Mark integration tests

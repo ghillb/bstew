@@ -468,7 +468,7 @@ class TreatmentManager:
         """Apply treatment to colony"""
 
         # Apply to mite populations
-        if hasattr(self.colony, "mite_model"):
+        if hasattr(self.colony, "mite_model") and self.colony.mite_model is not None:
             self.colony.mite_model.apply_treatment(treatment, current_time)
 
         # Apply to individual bees
@@ -548,10 +548,10 @@ class TreatmentManager:
 
     def _assess_disease_threats(self) -> Dict[DiseaseType, float]:
         """Assess current disease threat levels"""
-        threats = {}
+        threats: Dict[DiseaseType, float] = {}
 
         # Assess mite infestation
-        if hasattr(self.colony, "mite_model"):
+        if hasattr(self.colony, "mite_model") and self.colony.mite_model is not None:
             infestation_level = self.colony.mite_model.get_infestation_level(
                 self.colony.get_adult_population()
             )
@@ -559,13 +559,16 @@ class TreatmentManager:
                 threats[DiseaseType.VARROA_MITES] = min(1.0, infestation_level / 10.0)
 
         # Assess viral loads
-        if hasattr(self.colony, "virus_model"):
+        if hasattr(self.colony, "virus_model") and self.colony.virus_model is not None:
             for virus_type, load in self.colony.virus_model.virus_loads.items():
                 if load > 0:
                     threats[virus_type] = load
 
         # Assess Nosema
-        if hasattr(self.colony, "nosema_model"):
+        if (
+            hasattr(self.colony, "nosema_model")
+            and self.colony.nosema_model is not None
+        ):
             for (
                 nosema_type,
                 spore_count,
@@ -609,10 +612,10 @@ class DiseaseManager:
         self.treatment_manager = TreatmentManager(colony)
 
         # Add models to colony
-        colony.mite_model = self.mite_model  # type: ignore[attr-defined]
-        colony.virus_model = self.virus_model  # type: ignore[attr-defined]
-        colony.nosema_model = self.nosema_model  # type: ignore[attr-defined]
-        colony.treatment_manager = self.treatment_manager  # type: ignore[attr-defined]
+        setattr(colony, "mite_model", self.mite_model)
+        setattr(colony, "virus_model", self.virus_model)
+        setattr(colony, "nosema_model", self.nosema_model)
+        setattr(colony, "treatment_manager", self.treatment_manager)
 
     @property
     def varroa_model(self) -> "VarroaMiteModel":

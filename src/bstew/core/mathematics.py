@@ -472,13 +472,29 @@ class ODEIntegrator:
         if t_eval is None:
             t_eval = np.linspace(t_span[0], t_span[1], int(t_span[1] - t_span[0]) + 1)
 
-        sol = solve_ivp(  # type: ignore[call-overload]
-            system_wrapper,
-            t_span,
-            np.array(y0),
-            method=method,
-            t_eval=np.array(t_eval) if t_eval is not None else None,
+        # Call solve_ivp with proper overload matching
+        from typing import cast, Literal
+
+        # Cast method to expected literal type for MyPy
+        scipy_method = cast(
+            Literal["RK23", "RK45", "DOP853", "Radau", "BDF", "LSODA"], method
         )
+
+        if t_eval is not None:
+            sol = solve_ivp(
+                system_wrapper,
+                t_span,
+                np.array(y0),
+                method=scipy_method,
+                t_eval=np.array(t_eval),
+            )
+        else:
+            sol = solve_ivp(
+                system_wrapper,
+                t_span,
+                np.array(y0),
+                method=scipy_method,
+            )
 
         return sol.t, sol.y.T
 

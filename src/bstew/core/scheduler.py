@@ -5,15 +5,18 @@ Scheduler system for BSTEW
 Mesa-based scheduler for managing bee agent activation and time steps.
 """
 
-import mesa
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any, Set, TYPE_CHECKING
 from collections import defaultdict
 import logging
 
-from .agents import BeeAgent, BeeRole, BeeStatus
+if TYPE_CHECKING:
+    from .agents import BeeAgent, BeeRole, BeeStatus
+else:
+    # Import at runtime to avoid circular imports
+    from .agents import BeeAgent, BeeRole, BeeStatus
 
 
-class BeeScheduler(mesa.time.BaseScheduler):
+class BeeScheduler:
     """
     Custom scheduler for bee agents with role-based activation.
 
@@ -25,7 +28,10 @@ class BeeScheduler(mesa.time.BaseScheduler):
     """
 
     def __init__(self, model: Any) -> None:
-        super().__init__(model)
+        self.model = model
+        self.agents: List[Any] = []
+        self.time = 0
+        self.steps = 0
 
         # Role activation order (queens first, then workers, foragers, drones)
         self.role_order = [
@@ -40,44 +46,44 @@ class BeeScheduler(mesa.time.BaseScheduler):
         # Optimized agent tracking with sets for O(1) operations
         self.agents_by_role: Dict[BeeRole, Set[BeeAgent]] = defaultdict(set)
         self.agents_by_status: Dict[BeeStatus, Set[BeeAgent]] = defaultdict(set)
-        
+
         # Pre-filtered active agents by role for fast iteration
         self.active_agents_by_role: Dict[BeeRole, Set[BeeAgent]] = defaultdict(set)
-        
+
         # Activity-based filtering (converted to sets for performance)
         self.active_agents: Set[BeeAgent] = set()
         self.inactive_agents: Set[BeeAgent] = set()
-        
+
         # Fast lookup dictionaries
         self.agent_status_lookup: Dict[int, BeeStatus] = {}  # agent_id -> status
-        self.agent_role_lookup: Dict[int, BeeRole] = {}     # agent_id -> role
-        self.agent_energy_lookup: Dict[int, float] = {}     # agent_id -> energy
-        
+        self.agent_role_lookup: Dict[int, BeeRole] = {}  # agent_id -> role
+        self.agent_energy_lookup: Dict[int, float] = {}  # agent_id -> energy
+
         # Dirty flags for incremental updates
         self.status_dirty_agents: Set[BeeAgent] = set()
         self.role_dirty_agents: Set[BeeAgent] = set()
-        
+
         # Performance counters
         self.activation_counts: Dict[str, int] = defaultdict(int)
-        
+
         # Performance logging
         self.logger = logging.getLogger(__name__)
 
     def add(self, agent: Any) -> None:
         """Add agent to scheduler"""
-        super().add(agent)
+        self.agents.append(agent)
 
         # Add to optimized role-based grouping (only for BeeAgent instances)
         if hasattr(agent, "role"):
             self.agents_by_role[agent.role].add(agent)
             # Update lookup dictionaries
             self.agent_role_lookup[agent.unique_id] = agent.role
-            
+
         # Add to status tracking
         if hasattr(agent, "status"):
             self.agents_by_status[agent.status].add(agent)
             self.agent_status_lookup[agent.unique_id] = agent.status
-            
+
         # Add energy tracking
         if hasattr(agent, "energy"):
             self.agent_energy_lookup[agent.unique_id] = agent.energy
@@ -91,17 +97,18 @@ class BeeScheduler(mesa.time.BaseScheduler):
 
     def remove(self, agent: Any) -> None:
         """Remove agent from scheduler"""
-        super().remove(agent)
+        if agent in self.agents:
+            self.agents.remove(agent)
 
         # Remove from optimized role-based grouping (only for BeeAgent instances)
         if hasattr(agent, "role") and agent in self.agents_by_role[agent.role]:
             self.agents_by_role[agent.role].discard(agent)
             self.active_agents_by_role[agent.role].discard(agent)
-            
+
         # Remove from status tracking
         if hasattr(agent, "status") and agent in self.agents_by_status[agent.status]:
             self.agents_by_status[agent.status].discard(agent)
-            
+
         # Remove from lookup dictionaries
         agent_id = agent.unique_id
         self.agent_role_lookup.pop(agent_id, None)
@@ -111,7 +118,7 @@ class BeeScheduler(mesa.time.BaseScheduler):
         # Remove from activity sets (only for BeeAgent instances)
         self.active_agents.discard(agent)
         self.inactive_agents.discard(agent)
-        
+
         # Remove from dirty flags
         self.status_dirty_agents.discard(agent)
         self.role_dirty_agents.discard(agent)
@@ -156,7 +163,7 @@ class BeeScheduler(mesa.time.BaseScheduler):
         # Update active/inactive sets
         self.active_agents = new_active
         self.inactive_agents = new_inactive
-        
+
         # Update pre-filtered active agents by role
         self.active_agents_by_role.clear()
         for agent in new_active:
@@ -203,44 +210,44 @@ class BeeScheduler(mesa.time.BaseScheduler):
 
     def _process_dirty_flags(self) -> None:
         """Process dirty flags for incremental updates"""
-        
+
         # Update status lookups for dirty agents
         for agent in self.status_dirty_agents:
             old_status = self.agent_status_lookup.get(agent.unique_id)
             new_status = agent.status
-            
+
             if old_status != new_status:
                 # Remove from old status set
                 if old_status is not None:
                     self.agents_by_status[old_status].discard(agent)
-                
+
                 # Add to new status set
                 self.agents_by_status[new_status].add(agent)
                 self.agent_status_lookup[agent.unique_id] = new_status
-        
-        # Update role lookups for dirty agents  
+
+        # Update role lookups for dirty agents
         for agent in self.role_dirty_agents:
             old_role = self.agent_role_lookup.get(agent.unique_id)
             new_role = agent.role
-            
+
             if old_role != new_role:
                 # Remove from old role set
                 if old_role is not None:
                     self.agents_by_role[old_role].discard(agent)
                     self.active_agents_by_role[old_role].discard(agent)
-                
+
                 # Add to new role set
                 self.agents_by_role[new_role].add(agent)
                 if agent in self.active_agents and agent.status != BeeStatus.DEAD:
                     self.active_agents_by_role[new_role].add(agent)
-                    
+
                 self.agent_role_lookup[agent.unique_id] = new_role
-        
+
         # Update energy lookups for all agents (fast operation)
         for agent in self.agents:
             if hasattr(agent, "energy"):
                 self.agent_energy_lookup[agent.unique_id] = agent.energy
-        
+
         # Clear dirty flags
         self.status_dirty_agents.clear()
         self.role_dirty_agents.clear()
@@ -410,16 +417,16 @@ class BeeScheduler(mesa.time.BaseScheduler):
         """Mark agent as having dirty status for next update cycle"""
         if hasattr(agent, "status"):
             self.status_dirty_agents.add(agent)
-    
+
     def mark_agent_role_dirty(self, agent: Any) -> None:
         """Mark agent as having dirty role for next update cycle"""
         if hasattr(agent, "role"):
             self.role_dirty_agents.add(agent)
-    
+
     def get_fast_agent_count_by_role(self) -> Dict[BeeRole, int]:
         """Get fast agent count by role using optimized sets"""
         return {role: len(agents) for role, agents in self.agents_by_role.items()}
-    
+
     def get_fast_agent_count_by_status(self) -> Dict[BeeStatus, int]:
         """Get fast agent count by status using optimized sets"""
         return {status: len(agents) for status, agents in self.agents_by_status.items()}

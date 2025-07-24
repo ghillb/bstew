@@ -1,0 +1,22 @@
+[
+  {
+    "time": 0,
+    "agents": [
+      {"id": 1, "x": 10.0, "y": 20.0, "species": "apis_mellifera"},
+      {"id": 2, "x": 15.0, "y": 25.0, "species": "apis_mellifera"}
+    ],
+    "patches": [
+      {"id": 1, "x": 12.0, "y": 22.0, "type": "flower", "area": 5.0}
+    ]
+  },
+  {
+    "time": 1,
+    "agents": [
+      {"id": 1, "x": 11.0, "y": 21.0, "species": "apis_mellifera"},
+      {"id": 2, "x": 16.0, "y": 26.0, "species": "apis_mellifera"}
+    ],
+    "patches": [
+      {"id": 1, "x": 12.0, "y": 22.0, "type": "flower", "area": 5.0}
+    ]
+  }
+]

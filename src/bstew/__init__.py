@@ -13,7 +13,7 @@ Core Components:
 - CLI interface
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 __author__ = "BSTEW Team"
 
 from .core.agents import BeeAgent, Queen, Worker, Forager

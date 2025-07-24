@@ -175,7 +175,7 @@ class QueenSupersedure:
 
     def check_supersedure_conditions(self, current_time: int) -> bool:
         """Check if supersedure should be initiated"""
-        queen = self.colony.get_queen()  # type: ignore[attr-defined]
+        queen = self.colony.get_queen()
         if not queen:
             return True  # Emergency replacement needed
 
@@ -277,10 +277,10 @@ class QueenSupersedure:
         new_queen.quality_score = cell.quality_score
 
         # Add to colony
-        self.colony.add_agent(new_queen)  # type: ignore[attr-defined]
+        self.colony.add_agent(new_queen)
 
         # Handle queen conflict if existing queen present
-        existing_queen = self.colony.get_queen()  # type: ignore[attr-defined]
+        existing_queen = self.colony.get_queen()
         if existing_queen and existing_queen != new_queen:
             self._resolve_queen_conflict(existing_queen, new_queen)
 
@@ -378,7 +378,7 @@ class SwarmingBehavior:
         resource_adequacy = self.colony.get_resource_adequacy()
 
         # Queen quality
-        queen = self.colony.get_queen()  # type: ignore[attr-defined]
+        queen = self.colony.get_queen()
         queen_quality = 0.8 if queen and queen.age < 365 else 0.4
 
         # Seasonal timing
@@ -588,7 +588,7 @@ class SwarmingBehavior:
 
             # Remove swarm bees from colony
             for bee in swarm_bees:
-                self.colony.remove_agent(bee)  # type: ignore[attr-defined]
+                self.colony.remove_agent(bee)
 
             # Create new colony at selected site
             self._create_new_colony(swarm_bees, current_time)
@@ -599,14 +599,23 @@ class SwarmingBehavior:
             return
 
         # Create new colony
-        new_colony = Colony(  # type: ignore[call-arg]
-            unique_id=self.colony.model.next_id(),
+        new_colony = Colony(
             model=self.colony.model,
+            species=self.colony.species,
+            location=self.selected_site.location if self.selected_site else (0.0, 0.0),
+            initial_population={
+                "queens": 0,
+                "workers": 0,
+                "foragers": 0,
+                "drones": 0,
+                "brood": 0,
+            },
+            unique_id=self.colony.model.next_id(),
         )
 
         # Add swarm bees to new colony
         for bee in swarm_bees:
-            new_colony.add_agent(bee)  # type: ignore[attr-defined]
+            new_colony.add_agent(bee)
             bee.model = new_colony.model
             bee.pos = self.selected_site.location
 
@@ -617,7 +626,7 @@ class SwarmingBehavior:
             colony=new_colony,
         )
         new_queen.state = QueenState.VIRGIN
-        new_colony.add_agent(new_queen)  # type: ignore[attr-defined]
+        new_colony.add_agent(new_queen)
 
         # Add new colony to model
         self.colony.model.schedule.add(new_colony)
@@ -661,8 +670,8 @@ class ReproductionManager:
         self.swarming = SwarmingBehavior(colony)
 
         # Add components to colony
-        colony.supersedure = self.supersedure  # type: ignore[attr-defined]
-        colony.swarming = self.swarming  # type: ignore[attr-defined]
+        setattr(colony, "supersedure", self.supersedure)
+        setattr(colony, "swarming", self.swarming)
 
     def update_reproduction_dynamics(self, current_time: int) -> None:
         """Update all reproduction dynamics"""
@@ -682,7 +691,7 @@ class ReproductionManager:
 
     def _update_queen_mating(self, current_time: int) -> None:
         """Update queen mating behavior"""
-        queen = self.colony.get_queen()  # type: ignore[attr-defined]
+        queen = self.colony.get_queen()
 
         if queen and queen.state == QueenState.VIRGIN and queen.age >= 5:
             # Weather-dependent mating flight
@@ -708,12 +717,12 @@ class ReproductionManager:
             drone_production_rate = 0.02  # Minimal drone production
 
         # Apply drone production rate to colony
-        self.colony.drone_production_rate = drone_production_rate  # type: ignore[attr-defined]
+        self.colony.drone_production_rate = drone_production_rate
 
     def get_reproduction_summary(self) -> Dict[str, Any]:
         """Get comprehensive reproduction status"""
 
-        queen = self.colony.get_queen()  # type: ignore[attr-defined]
+        queen = self.colony.get_queen()
         queen_status = {
             "present": queen is not None,
             "age": queen.age if queen else 0,

@@ -1,0 +1,38 @@
+[
+  {
+    "timestamp": "2023-01-01",
+    "population": 5000,
+    "honey_production": 100,
+    "foraging_trips": 200,
+    "area": 50,
+    "age_groups": {"larvae": 1750, "pupae": 1000, "adults": 2250},
+    "deaths": 10,
+    "births": 50,
+    "cause_of_death": "natural",
+    "season": "winter"
+  },
+  {
+    "timestamp": "2023-01-02",
+    "population": 5200,
+    "honey_production": 120,
+    "foraging_trips": 220,
+    "area": 50,
+    "age_groups": {"larvae": 1820, "pupae": 1040, "adults": 2340},
+    "deaths": 8,
+    "births": 52,
+    "cause_of_death": "environmental",
+    "season": "winter"
+  },
+  {
+    "timestamp": "2023-01-03",
+    "population": 5500,
+    "honey_production": 140,
+    "foraging_trips": 250,
+    "area": 50,
+    "age_groups": {"larvae": 1925, "pupae": 1100, "adults": 2475},
+    "deaths": 5,
+    "births": 55,
+    "cause_of_death": "predation",
+    "season": "winter"
+  }
+]

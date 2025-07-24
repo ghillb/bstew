@@ -11,6 +11,9 @@ from pathlib import Path
 from .paths import get_common_path
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# Import new species system
+from ..core.bee_species_config import BeeSpeciesType, BeeSpeciesManager
+
 
 class SimulationConfig(BaseModel):
     """Simulation parameters configuration with validation"""
@@ -69,7 +72,8 @@ class ColonyConfig(BaseModel):
         description="Initial population by caste",
     )
     species: str = Field(
-        default="apis_mellifera", description="Bee species scientific name"
+        default="APIS_MELLIFERA",
+        description="Bee species type (BeeSpeciesType enum value)",
     )
     location: List[float] = Field(
         default=[52.5, -1.2],
@@ -130,28 +134,42 @@ class ColonyConfig(BaseModel):
     @field_validator("species")
     @classmethod
     def validate_species(cls, v: str) -> str:
-        """Validate species name format"""
-        valid_species = [
-            "apis_mellifera",
-            "bombus_terrestris",
-            "bombus_lapidarius",
-            "bombus_pascuorum",
-            "bombus_hortorum",
-            "bombus_ruderatus",
-            "bombus_humilis",
-            "bombus_muscorum",
-        ]
-
+        """Validate species using new BeeSpeciesType system"""
         # Allow test species for testing purposes
         if v.startswith("test_"):
             return v
 
-        if v.lower() not in [s.lower() for s in valid_species]:
+        # Convert old format to new format if needed
+        species_mapping = {
+            "apis_mellifera": "APIS_MELLIFERA",
+            "bombus_terrestris": "BOMBUS_TERRESTRIS",
+            "bombus_lapidarius": "BOMBUS_LAPIDARIUS",
+            "bombus_pascuorum": "BOMBUS_PASCUORUM",
+            "bombus_hortorum": "BOMBUS_HORTORUM",
+            "bombus_ruderatus": "BOMBUS_RUDERATUS",
+            "bombus_humilis": "BOMBUS_HUMILIS",
+            "bombus_muscorum": "BOMBUS_MUSCORUM",
+        }
+
+        # Convert old format
+        if v.lower() in species_mapping:
+            v = species_mapping[v.lower()]
+
+        # Validate against BeeSpeciesType enum
+        try:
+            BeeSpeciesType[v.upper()]
+            return v.upper()
+        except KeyError:
+            # Get list of valid species from the species manager
+            species_manager = BeeSpeciesManager()
+            available_species = [
+                s.value for s in species_manager.get_available_species()
+            ]
             raise ValueError(
-                f"Unknown species: {v}. Valid species: {', '.join(valid_species)}"
+                f"Unknown species: {v}. Valid species: {', '.join(available_species)}"
             )
 
-        return v.lower()
+        return v
 
 
 class EnvironmentConfig(BaseModel):
@@ -290,7 +308,8 @@ class OutputConfig(BaseModel):
     model_config = {"validate_assignment": True}
 
     output_directory: str = Field(
-        default_factory=lambda: get_common_path("results"), description="Output directory path"
+        default_factory=lambda: get_common_path("results"),
+        description="Output directory path",
     )
     log_level: str = Field(default="INFO", description="Logging level")
     save_plots: bool = Field(default=True, description="Save visualization plots")
@@ -514,6 +533,28 @@ class ConfigManager:
 
         with open(species_path, "w") as f:
             yaml.dump(config_data, f, default_flow_style=False, indent=2)
+
+    def get_configured_species_type(self, config: BstewConfig) -> BeeSpeciesType:
+        """Get the configured species as a BeeSpeciesType enum"""
+        species_string = config.colony.species
+
+        # Handle test species
+        if species_string.startswith("test_"):
+            # Default to honey bee for test species
+            return BeeSpeciesType.APIS_MELLIFERA
+
+        try:
+            return BeeSpeciesType[species_string.upper()]
+        except KeyError:
+            # This should not happen due to validation, but provide fallback
+            return BeeSpeciesType.BOMBUS_TERRESTRIS
+
+    def get_species_communication_system(self, config: BstewConfig):
+        """Get communication system for configured species"""
+        from ..core.bee_communication import create_communication_system
+
+        species_type = self.get_configured_species_type(config)
+        return create_communication_system(species_type)
 
     def create_scenario_config(self, scenario_name: str, config: BstewConfig) -> None:
         """Create scenario configuration"""

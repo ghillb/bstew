@@ -82,7 +82,7 @@ class ParameterSpec(BaseModel):
             raise ValueError("max_value must be greater than min_value")
         return v
 
-    def generate_values(self, n_samples: int = None) -> List[Any]:  # type: ignore[assignment]
+    def generate_values(self, n_samples: Optional[int] = None) -> List[Any]:
         """Generate parameter values based on specification"""
         if self.values:
             return self.values
@@ -336,7 +336,11 @@ class ExperimentDesign(BaseModel):
             for i, sample in enumerate(samples):
                 params = self.base_config.copy()
 
-                for j, param_name in enumerate(problem["names"]):  # type: ignore
+                names_data = problem.get("names", [])
+                param_names = (
+                    list(names_data) if isinstance(names_data, (list, tuple)) else []
+                )
+                for j, param_name in enumerate(param_names):
                     params[param_name] = sample[j]
 
                 run = ExperimentRun(
@@ -400,7 +404,11 @@ class BatchProcessor:
     - Checkpoint/resume functionality
     """
 
-    def __init__(self, output_dir: str = "artifacts/experiments", max_workers: int = None):  # type: ignore[assignment]
+    def __init__(
+        self,
+        output_dir: str = "artifacts/experiments",
+        max_workers: Optional[int] = None,
+    ):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         self.max_workers = max_workers or mp.cpu_count() // 2
@@ -635,7 +643,7 @@ class BatchProcessor:
         results_df = pd.DataFrame(results_data)
 
         # Basic statistics
-        analysis = {
+        analysis: Dict[str, Any] = {
             "summary_statistics": results_df.describe().to_dict(),
             "parameter_correlations": {},
             "sensitivity_indices": {},
@@ -651,7 +659,7 @@ class BatchProcessor:
 
         # Sensitivity analysis for specific experiment types
         if design.experiment_type == ExperimentType.SENSITIVITY_ANALYSIS:
-            analysis["sensitivity_indices"] = self._calculate_sensitivity_indices(  # type: ignore[assignment]
+            analysis["sensitivity_indices"] = self._calculate_sensitivity_indices(
                 results_df, param_names, design
             )
 

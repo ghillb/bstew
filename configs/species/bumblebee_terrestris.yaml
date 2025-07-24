@@ -1,0 +1,53 @@
+# Large Earth Bumblebee (Bombus terrestris) Configuration  
+# ========================================================
+#
+# Optimized for bumblebee colonies with scent communication,
+# small colony sizes, and individual decision-making.
+
+simulation:
+  duration_days: 180      # Shorter season for bumblebees
+  timestep: 1.0
+  random_seed: 42
+  output_frequency: 1
+
+colony:
+  initial_population:
+    queens: 1
+    workers: 250          # Small bumblebee colony
+    foragers: 60          # Fewer foragers
+    drones: 30
+    brood: 120
+  species: "BOMBUS_TERRESTRIS"
+  location: [52.5, -1.2]
+  colony_strength: 1.0
+  genetic_diversity: 0.08  # Lower genetic diversity
+
+environment:
+  landscape_width: 100    # Smaller landscape for short foraging
+  landscape_height: 100
+  cell_size: 15.0
+  seasonal_effects: true
+
+foraging:
+  max_foraging_range: 1500.0  # Up to 1.5km for bumblebees
+  dance_threshold: 0.0        # No dance threshold
+  recruitment_efficiency: 0.15 # Low recruitment via scent
+  energy_cost_per_meter: 0.012 # Less efficient flight
+
+# Species-specific communication settings  
+communication:
+  dance_communication: false
+  scent_communication: true
+  social_information_sharing: 0.2
+  individual_decision_weight: 0.9
+  colony_memory_capacity: 12   # Low memory, individual-based
+
+# Bumblebee-specific parameters
+temperature:
+  min_foraging_temp: 8.0      # Can forage at lower temps
+  optimal_temp_range: [15, 25]
+
+output:
+  output_directory: "results/bumblebee_terrestris"
+  save_plots: true
+  save_csv: true

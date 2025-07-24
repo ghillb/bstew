@@ -12,8 +12,14 @@ from pydantic import BaseModel, Field
 from enum import Enum
 import logging
 import math
+from datetime import datetime
 
 from ..spatial.patches import FlowerSpecies, HabitatType
+from .flower_community_layers import (
+    FlowerCommunity,
+    VerticalLayer,
+    CommunityLayerSystem,
+)
 
 
 class LayerType(Enum):
@@ -189,6 +195,18 @@ class MasterPatch(BaseModel):
     last_visited_day: int = Field(default=-1, description="Last visited day")
     visitor_count: int = Field(default=0, ge=0, description="Total visitor count")
 
+    # Hierarchical community integration
+    flower_community: Optional[FlowerCommunity] = Field(
+        default=None, description="Associated hierarchical flower community"
+    )
+    community_integration_mode: str = Field(
+        default="legacy",
+        description="Integration mode: 'legacy', 'community', 'hybrid'",
+    )
+    vertical_layer_mapping: Dict[str, VerticalLayer] = Field(
+        default_factory=dict, description="Mapping of legacy layers to vertical layers"
+    )
+
     def add_layer(self, layer: ResourceLayer, priority: int = 0) -> None:
         """Add resource layer to patch"""
         self.layers[layer.layer_id] = layer
@@ -324,6 +342,264 @@ class MasterPatch(BaseModel):
                 )
 
         return accessibility_scores
+
+    def initialize_flower_community(
+        self,
+        community_type: str = "mixed_grassland",
+        community_system: Optional["CommunityLayerSystem"] = None,
+    ) -> None:
+        """Initialize hierarchical flower community for this patch"""
+
+        if community_system is None:
+            community_system = CommunityLayerSystem()
+
+        # Create community template based on habitat type
+        template_mapping = {
+            HabitatType.GRASSLAND: "uk_chalk_grassland",
+            HabitatType.WOODLAND: "woodland_edge",
+            HabitatType.HEDGEROW: "woodland_edge",
+            HabitatType.WILDFLOWER: "uk_chalk_grassland",
+            HabitatType.CROPLAND: "uk_chalk_grassland",
+        }
+
+        template_name = template_mapping.get(self.habitat_type, "uk_chalk_grassland")
+
+        try:
+            # Create flower community
+            self.flower_community = community_system.create_community_from_template(
+                community_id=f"community_{self.patch_id}",
+                template_name=template_name,
+                location=self.location,
+                area_m2=self.area_m2,
+                customizations={
+                    "microclimate": {
+                        "temperature_buffer": self.elevation_m
+                        / 1000.0,  # Higher = cooler
+                        "wind_protection": min(
+                            1.0, self.slope_degrees / 45.0
+                        ),  # Steeper = more protected
+                    }
+                },
+            )
+
+            # Switch to community integration mode
+            self.community_integration_mode = "community"
+
+            # Create mapping between legacy layers and vertical layers
+            self._create_vertical_layer_mapping()
+
+        except Exception as e:
+            # Fall back to legacy mode if community creation fails
+            self.community_integration_mode = "legacy"
+            logging.getLogger(__name__).warning(
+                f"Failed to initialize community for patch {self.patch_id}: {e}"
+            )
+
+    def _create_vertical_layer_mapping(self) -> None:
+        """Create mapping between legacy resource layers and vertical layers"""
+
+        if not self.flower_community:
+            return
+
+        # Map existing resource layers to vertical layers based on species characteristics
+        for layer_id, resource_layer in self.layers.items():
+            species = resource_layer.flower_species
+
+            # Determine vertical layer based on species characteristics
+            if hasattr(species, "height_m"):
+                height = species.height_m
+                if height >= 3.0:
+                    vertical_layer = VerticalLayer.CANOPY
+                elif height >= 1.0:
+                    vertical_layer = VerticalLayer.UNDERSTORY
+                else:
+                    vertical_layer = VerticalLayer.GROUND
+            else:
+                # Default mapping based on species name/type
+                if species.name in ["Hawthorn", "Blackthorn", "Lime Tree"]:
+                    vertical_layer = VerticalLayer.CANOPY
+                elif species.name in ["Rose", "Bramble", "Gorse"]:
+                    vertical_layer = VerticalLayer.UNDERSTORY
+                else:
+                    vertical_layer = VerticalLayer.GROUND
+
+            self.vertical_layer_mapping[layer_id] = vertical_layer
+
+    def enable_hybrid_integration(self) -> None:
+        """Enable hybrid mode combining legacy layers with community structure"""
+
+        if not self.flower_community:
+            self.initialize_flower_community()
+
+        if self.flower_community:
+            self.community_integration_mode = "hybrid"
+
+            # Synchronize legacy layers with community layers
+            self._synchronize_with_community()
+
+    def _synchronize_with_community(self) -> None:
+        """Synchronize legacy resource layers with community structure"""
+
+        if not self.flower_community or self.community_integration_mode != "hybrid":
+            return
+
+        # Update legacy layers based on community resource distribution
+        community_resources = self.flower_community.update_community_resources(
+            day_of_year=datetime.now().timetuple().tm_yday
+        )
+
+        # Distribute community resources to legacy layers
+        total_legacy_resources = sum(
+            layer.current_nectar + layer.current_pollen
+            for layer in self.layers.values()
+        )
+
+        if total_legacy_resources > 0:
+            nectar_multiplier = (
+                community_resources["nectar_production"] / total_legacy_resources
+            )
+            pollen_multiplier = (
+                community_resources["pollen_production"] / total_legacy_resources
+            )
+
+            for layer in self.layers.values():
+                layer.current_nectar *= nectar_multiplier
+                layer.current_pollen *= pollen_multiplier
+
+    def get_hierarchical_resources(self, day_of_year: int) -> Dict[str, Any]:
+        """Get resources using hierarchical community model"""
+
+        if self.community_integration_mode == "legacy" or not self.flower_community:
+            # Fall back to legacy resource calculation
+            return self._get_legacy_resources(day_of_year)
+
+        elif self.community_integration_mode == "community":
+            # Use pure community model
+            return self.flower_community.update_community_resources(day_of_year)
+
+        elif self.community_integration_mode == "hybrid":
+            # Combine community and legacy models
+            community_resources = self.flower_community.update_community_resources(
+                day_of_year
+            )
+            legacy_resources = self._get_legacy_resources(day_of_year)
+
+            # Weighted combination (70% community, 30% legacy for smooth transition)
+            return {
+                "nectar_production": (
+                    community_resources["nectar_production"] * 0.7
+                    + legacy_resources["nectar_production"] * 0.3
+                ),
+                "pollen_production": (
+                    community_resources["pollen_production"] * 0.7
+                    + legacy_resources["pollen_production"] * 0.3
+                ),
+                "integration_mode": "hybrid",
+                "community_efficiency": community_resources.get(
+                    "community_efficiency", 1.0
+                ),
+                "legacy_contribution": 0.3,
+                "community_contribution": 0.7,
+            }
+
+        return {}
+
+    def _get_legacy_resources(self, day_of_year: int) -> Dict[str, float]:
+        """Get resources using legacy layer model"""
+
+        total_nectar = sum(layer.current_nectar for layer in self.layers.values())
+        total_pollen = sum(layer.current_pollen for layer in self.layers.values())
+
+        return {
+            "nectar_production": total_nectar,
+            "pollen_production": total_pollen,
+            "legacy_mode": True,
+        }
+
+    def get_vertical_layer_resources(
+        self, vertical_layer: VerticalLayer, day_of_year: int
+    ) -> Dict[str, float]:
+        """Get resources for specific vertical layer"""
+
+        if not self.flower_community:
+            return {"nectar_production": 0.0, "pollen_production": 0.0}
+
+        if vertical_layer not in self.flower_community.layers:
+            return {"nectar_production": 0.0, "pollen_production": 0.0}
+
+        layer = self.flower_community.layers[vertical_layer]
+        competition_effects = self.flower_community.calculate_layer_interactions()
+        layer_competition = competition_effects.get(vertical_layer, {})
+
+        return layer.get_resource_production(
+            day_of_year, self.flower_community.base_conditions, layer_competition
+        )
+
+    def simulate_community_succession(self, years: int = 5) -> Dict[str, Any]:
+        """Simulate succession in hierarchical community"""
+
+        if not self.flower_community:
+            return {"error": "No flower community initialized"}
+
+        succession_history = self.flower_community.simulate_succession(years)
+        return {"succession_history": succession_history, "years": years}
+
+    def get_biodiversity_metrics(self) -> Dict[str, Any]:
+        """Get biodiversity metrics from hierarchical community"""
+
+        if not self.flower_community:
+            # Calculate legacy biodiversity
+            species_count = len(
+                set(layer.flower_species.name for layer in self.layers.values())
+            )
+            return {
+                "species_count": species_count,
+                "diversity_index": min(1.0, species_count / 10.0),  # Simple diversity
+                "mode": "legacy",
+            }
+
+        return {
+            "diversity_index": self.flower_community.current_diversity_index,
+            "stability_index": self.flower_community.stability_index,
+            "resilience_score": self.flower_community.resilience_score,
+            "layer_count": len(self.flower_community.layers),
+            "species_count": sum(
+                len(layer.dominant_species)
+                + len(layer.subordinate_species)
+                + len(layer.rare_species)
+                for layer in self.flower_community.layers.values()
+            ),
+            "mode": "community",
+        }
+
+    def apply_disturbance(
+        self, disturbance_type: str, intensity: float
+    ) -> Dict[str, Any]:
+        """Apply disturbance to both legacy and community layers"""
+
+        results: Dict[str, Any] = {"legacy_effects": {}, "community_effects": {}}
+
+        # Apply to legacy layers
+        for layer_id, layer in self.layers.items():
+            if disturbance_type == "mowing":
+                # Reduce current resources
+                layer.current_nectar *= 1.0 - intensity
+                layer.current_pollen *= 1.0 - intensity
+                results["legacy_effects"][layer_id] = {"resource_reduction": intensity}
+
+            elif disturbance_type == "drought":
+                # Reduce water-dependent production
+                layer.depletion_factor *= 1.0 - intensity * 0.5
+                results["legacy_effects"][layer_id] = {
+                    "depletion_increase": intensity * 0.5
+                }
+
+        # Apply to community if present
+        if self.flower_community:
+            community_disturbance = self.flower_community._apply_random_disturbance()
+            results["community_effects"] = community_disturbance
+
+        return results
 
 
 class MasterPatchSystem:

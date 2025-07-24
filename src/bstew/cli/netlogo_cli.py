@@ -11,7 +11,7 @@ import typer
 import json
 import yaml
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 from rich.console import Console
 from rich.table import Table
@@ -24,11 +24,7 @@ from ..data.netlogo_parser import NetLogoDataParser
 from ..config.netlogo_mapping import NetLogoParameterMapper, convert_netlogo_to_bstew
 from ..utils.validation import NetLogoSpecificValidator
 from ..data.netlogo_output_parser import NetLogoBehaviorSpaceParser
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../"))
-from tests.test_netlogo_integration import NetLogoIntegrationTester
+from ..utils.integration_tester import NetLogoIntegrationTester
 
 app = typer.Typer(
     name="bstew-netlogo",
@@ -47,6 +43,15 @@ class OutputType(str, Enum):
     reporter = "reporter"
 
 
+class ParseType(str, Enum):
+    """NetLogo parse types"""
+
+    rotation = "rotation"
+    species = "species"
+    config = "config"
+    all = "all"
+
+
 def setup_logging(verbose: bool = False) -> None:
     """Setup logging configuration"""
     level = logging.DEBUG if verbose else logging.INFO
@@ -59,8 +64,14 @@ def setup_logging(verbose: bool = False) -> None:
 
 @app.command()
 def parse(
-    input_dir: Path = typer.Argument(
-        ..., help="Input directory containing NetLogo data files"
+    input_file: Path = typer.Argument(
+        ..., help="Input file or directory containing NetLogo data"
+    ),
+    parse_type: Optional[ParseType] = typer.Option(
+        None,
+        "--type",
+        "-t",
+        help="Type of data to parse (rotation, species, config, all)",
     ),
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Output file path"
@@ -75,33 +86,90 @@ def parse(
     """Parse NetLogo data files and convert to structured format"""
     setup_logging(verbose)
 
+    # Determine if input is file or directory
+    is_directory = input_file.is_dir()
+
+    # Determine parse type based on file extension or input argument
+    if parse_type is None:
+        if input_file.name.endswith(("crop_rotation.txt", "rotation.txt")):
+            parse_type = ParseType.rotation
+        elif input_file.name.endswith(("BumbleSpecies", "species.csv")):
+            parse_type = ParseType.species
+        elif input_file.name.endswith(("Parameters.csv", "config.yaml", "config.yml")):
+            parse_type = ParseType.config
+        elif is_directory:
+            parse_type = ParseType.all
+        else:
+            parse_type = ParseType.all
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        progress.add_task("Parsing NetLogo data files...", total=None)
+        progress.add_task(f"Parsing NetLogo data ({parse_type.value})...", total=None)
 
         parser = NetLogoDataParser()
+        netlogo_data = {}
 
         try:
-            # Parse all data files
-            netlogo_data = parser.parse_all_data_files(str(input_dir))
+            if parse_type == ParseType.all and is_directory:
+                # Parse all data files in directory
+                netlogo_data = parser.parse_all_data_files(str(input_file))
 
-            # Create summary table
-            table = Table(title="📊 Parsing Results")
-            table.add_column("Data Type", style="cyan")
-            table.add_column("Count", style="magenta")
+                # Create summary table
+                table = Table(title="📊 Parsing Results")
+                table.add_column("Data Type", style="cyan")
+                table.add_column("Count", style="magenta")
 
-            table.add_row("Parameters", str(len(netlogo_data.get("parameters", {}))))
-            table.add_row("Species", str(len(netlogo_data.get("species", {}))))
-            table.add_row("Flowers", str(len(netlogo_data.get("flowers", {}))))
-            table.add_row(
-                "Food Sources", str(len(netlogo_data.get("food_sources", {})))
-            )
-            table.add_row("Habitats", str(len(netlogo_data.get("habitats", {}))))
+                table.add_row(
+                    "Parameters", str(len(netlogo_data.get("parameters", {})))
+                )
+                table.add_row("Species", str(len(netlogo_data.get("species", {}))))
+                table.add_row("Flowers", str(len(netlogo_data.get("flowers", {}))))
+                table.add_row(
+                    "Food Sources", str(len(netlogo_data.get("food_sources", {})))
+                )
+                table.add_row("Habitats", str(len(netlogo_data.get("habitats", {}))))
 
-            console.print(table)
+                console.print(table)
+
+            elif parse_type == ParseType.rotation:
+                # Parse crop rotation data
+                netlogo_data = _parse_crop_rotation(parser, str(input_file))
+                console.print(f"✅ Parsed crop rotation data from {input_file}")
+
+            elif parse_type == ParseType.species:
+                # Parse species data
+                if input_file.suffix.lower() == ".csv":
+                    species_data = parser.species_parser.parse_species_file(
+                        str(input_file)
+                    )
+                    netlogo_data = {"species": species_data}
+                    console.print(
+                        f"✅ Parsed {len(species_data)} species from {input_file}"
+                    )
+                else:
+                    raise typer.BadParameter("Species files must be CSV format")
+
+            elif parse_type == ParseType.config:
+                # Parse config/parameters data
+                if input_file.suffix.lower() == ".csv":
+                    params_data = parser.parameter_parser.parse_parameters_file(
+                        str(input_file)
+                    )
+                    netlogo_data = {"parameters": params_data}
+                    console.print(
+                        f"✅ Parsed {len(params_data)} parameters from {input_file}"
+                    )
+                elif input_file.suffix.lower() in [".yaml", ".yml"]:
+                    # Handle YAML config files
+                    with open(input_file, "r") as f:
+                        config_data = yaml.safe_load(f)
+                    netlogo_data = {"config": config_data}
+                    console.print(f"✅ Parsed YAML config from {input_file}")
+                else:
+                    raise typer.BadParameter("Config files must be CSV or YAML format")
 
             # Save output if requested
             if output:
@@ -122,39 +190,7 @@ def parse(
 
             # Show sample data if requested
             if show_samples:
-                console.print("\\n📋 Sample Data:", style="bold blue")
-
-                # Sample parameters
-                params = netlogo_data.get("parameters", {})
-                if params:
-                    sample_params = list(params.items())[:3]
-                    console.print("  Parameters (first 3):", style="bold")
-                    for name, param in sample_params:
-                        value = param.value if hasattr(param, "value") else param
-                        console.print(f"    {name}: {value}")
-
-                # Sample species
-                species = netlogo_data.get("species", {})
-                if species:
-                    sample_species = list(species.items())[:2]
-                    console.print("  Species (first 2):", style="bold")
-                    for name, spec in sample_species:
-                        console.print(
-                            f"    {name}: {spec.species_id if hasattr(spec, 'species_id') else name}"
-                        )
-
-                # Sample flowers
-                flowers = netlogo_data.get("flowers", {})
-                if flowers:
-                    sample_flowers = list(flowers.items())[:3]
-                    console.print("  Flowers (first 3):", style="bold")
-                    for name, flower in sample_flowers:
-                        depth = (
-                            flower.corolla_depth_mm
-                            if hasattr(flower, "corolla_depth_mm")
-                            else "N/A"
-                        )
-                        console.print(f"    {name}: depth={depth}mm")
+                _show_sample_data(netlogo_data, console, parse_type)
 
         except Exception as e:
             console.print(f"❌ Error parsing NetLogo data: {e}", style="bold red")
@@ -617,14 +653,30 @@ def convert(
                     experiments_data = []
                     for experiment in experiments:
                         exp_data = {
-                            "experiment_name": experiment.experiment_name,  # type: ignore[attr-defined]
+                            "experiment_name": getattr(
+                                experiment,
+                                "experiment_name",
+                                str(experiment[0])
+                                if isinstance(experiment, tuple)
+                                else "unknown",
+                            ),
                             "runs": [
                                 {
                                     "run_number": run.run_number,
                                     "parameters": run.parameters,
                                     "metrics": run.metrics,
                                 }
-                                for run in experiment.runs  # type: ignore[attr-defined]
+                                for run in (
+                                    getattr(
+                                        experiment,
+                                        "runs",
+                                        experiment[1]
+                                        if isinstance(experiment, tuple)
+                                        and len(experiment) > 1
+                                        else [],
+                                    )
+                                    or []
+                                )
                             ],
                         }
                         experiments_data.append(exp_data)
@@ -653,6 +705,133 @@ def convert(
     rprint(
         "\\n✅ [bold green]NetLogo output conversion completed successfully![/bold green]"
     )
+
+
+def _parse_crop_rotation(parser: NetLogoDataParser, file_path: str) -> Dict[str, Any]:
+    """Parse crop rotation data from NetLogo file"""
+    crop_data: Dict[str, Any] = {"crop_rotation": []}
+
+    try:
+        with open(file_path, "r") as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+
+                if not line or line.startswith("#"):
+                    continue
+
+                # Parse crop rotation format: crop_type,start_day,end_day,yield_multiplier
+                parts = line.split(",")
+
+                if len(parts) >= 3:
+                    try:
+                        crop_entry = {
+                            "crop_type": parts[0].strip(),
+                            "start_day": int(parts[1].strip()) if len(parts) > 1 else 1,
+                            "end_day": int(parts[2].strip()) if len(parts) > 2 else 365,
+                            "yield_multiplier": float(parts[3].strip())
+                            if len(parts) > 3
+                            else 1.0,
+                            "line_number": line_num,
+                        }
+                        crop_data["crop_rotation"].append(crop_entry)
+
+                    except ValueError as e:
+                        console.print(
+                            f"⚠️  Warning: Error parsing line {line_num}: {e}",
+                            style="yellow",
+                        )
+                        continue
+
+        crop_data["metadata"] = {
+            "total_crops": len(crop_data["crop_rotation"]),
+            "source_file": file_path,
+        }
+
+    except FileNotFoundError:
+        raise typer.BadParameter(f"Crop rotation file not found: {file_path}")
+    except Exception as e:
+        raise ValueError(f"Error parsing crop rotation file {file_path}: {e}")
+
+    return crop_data
+
+
+def _show_sample_data(
+    netlogo_data: Dict[str, Any], console: Console, parse_type: ParseType
+) -> None:
+    """Show sample data based on parse type"""
+    console.print("\\n📋 Sample Data:", style="bold blue")
+
+    if parse_type == ParseType.rotation:
+        # Show crop rotation samples
+        crops = netlogo_data.get("crop_rotation", [])
+        if crops:
+            console.print("  Crop Rotation (first 3):", style="bold")
+            for crop in crops[:3]:
+                console.print(
+                    f"    {crop.get('crop_type')}: days {crop.get('start_day')}-{crop.get('end_day')}"
+                )
+
+    elif parse_type == ParseType.species:
+        # Show species samples
+        species = netlogo_data.get("species", {})
+        if species:
+            sample_species = list(species.items())[:2]
+            console.print("  Species (first 2):", style="bold")
+            for name, spec in sample_species:
+                console.print(
+                    f"    {name}: {spec.species_id if hasattr(spec, 'species_id') else name}"
+                )
+
+    elif parse_type == ParseType.config:
+        # Show config/parameter samples
+        params = netlogo_data.get("parameters", {})
+        config = netlogo_data.get("config", {})
+
+        if params:
+            sample_params = list(params.items())[:3]
+            console.print("  Parameters (first 3):", style="bold")
+            for name, param in sample_params:
+                value = param.value if hasattr(param, "value") else param
+                console.print(f"    {name}: {value}")
+
+        if config:
+            sample_config = list(config.items())[:3]
+            console.print("  Config (first 3):", style="bold")
+            for key, value in sample_config:
+                console.print(f"    {key}: {value}")
+
+    else:  # ParseType.all
+        # Sample parameters
+        params = netlogo_data.get("parameters", {})
+        if params:
+            sample_params = list(params.items())[:3]
+            console.print("  Parameters (first 3):", style="bold")
+            for name, param in sample_params:
+                value = param.value if hasattr(param, "value") else param
+                console.print(f"    {name}: {value}")
+
+        # Sample species
+        species = netlogo_data.get("species", {})
+        if species:
+            sample_species = list(species.items())[:2]
+            console.print("  Species (first 2):", style="bold")
+            for name, spec in sample_species:
+                console.print(
+                    f"    {name}: {spec.species_id if hasattr(spec, 'species_id') else name}"
+                )
+
+        # Sample flowers
+        flowers = netlogo_data.get("flowers", {})
+        if flowers:
+            sample_flowers = list(flowers.items())[:3]
+            console.print("  Flowers (first 3):", style="bold")
+            for name, flower in sample_flowers:
+                depth = (
+                    flower.corolla_depth_mm
+                    if hasattr(flower, "corolla_depth_mm")
+                    else "N/A"
+                )
+                console.print(f"    {name}: depth={depth}mm")
 
 
 def main() -> None:
